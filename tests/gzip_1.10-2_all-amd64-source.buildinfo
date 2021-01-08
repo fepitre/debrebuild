@@ -1,0 +1,224 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Format: 1.0
+Source: gzip
+Binary: gzip gzip-win32
+Architecture: all amd64 source
+Version: 1.10-2
+Checksums-Md5:
+ 93ab8ec1766e26017fe6a7422d21dfb8 2199 gzip_1.10-2.dsc
+ c7e557d5ab0394257f6d0898d5fc08b9 105300 gzip-dbgsym_1.10-2_amd64.deb
+ 19dd1ec2e527dae5ced4fb54ce083f95 125036 gzip-win32_1.10-2_all.deb
+ 162a6f2e4337f69526b96cb5022fce60 130872 gzip_1.10-2_amd64.deb
+Checksums-Sha1:
+ a3e3b4884b2b005d065ad5f9c1daea46eacc8a05 2199 gzip_1.10-2.dsc
+ acee910fe4ff96636e33290887718e8309a2599e 105300 gzip-dbgsym_1.10-2_amd64.deb
+ 9809588beac4adaa36096501ed07f8cf92bb7b48 125036 gzip-win32_1.10-2_all.deb
+ c2e9085981422beda78cad9adc1ec5493c66ce64 130872 gzip_1.10-2_amd64.deb
+Checksums-Sha256:
+ b51c898723bfbea9abc217578fd739841d92711e8e96e8392d69151a9147475e 2199 gzip_1.10-2.dsc
+ f4f835ca2bf07fd33f6876704f71cbf656d3686ae7e16eaf804ac8fe8a92b3c6 105300 gzip-dbgsym_1.10-2_amd64.deb
+ 6281eaf565098d0161efad7c3d46b132ad37e42038509bfe72c5c7b5542fccf9 125036 gzip-win32_1.10-2_all.deb
+ 68b46db19445c3f1956291a68104672931f9f37162723120c6dfb28995cedc4a 130872 gzip_1.10-2_amd64.deb
+Build-Origin: Debian
+Build-Architecture: amd64
+Build-Date: Thu, 19 Mar 2020 20:46:37 +0000
+Build-Path: /build/gzip-1.10
+Installed-Build-Depends:
+ autoconf (= 2.69-11.1),
+ automake (= 1:1.16.1-4),
+ autopoint (= 0.19.8.1-10),
+ autotools-dev (= 20180224.1),
+ base-files (= 11),
+ base-passwd (= 3.5.47),
+ bash (= 5.0-6),
+ binutils (= 2.34-4),
+ binutils-common (= 2.34-4),
+ binutils-mingw-w64-i686 (= 2.34-3+8.8),
+ binutils-mingw-w64-x86-64 (= 2.34-3+8.8),
+ binutils-x86-64-linux-gnu (= 2.34-4),
+ bsdmainutils (= 11.1.2+b1),
+ bsdutils (= 1:2.34-0.1),
+ build-essential (= 12.8),
+ bzip2 (= 1.0.8-2),
+ coreutils (= 8.30-3+b1),
+ cpp (= 4:9.2.1-3.1),
+ cpp-7 (= 7.5.0-5),
+ cpp-9 (= 9.3.0-3),
+ dash (= 0.5.10.2-6),
+ debconf (= 1.5.73),
+ debhelper (= 12.9),
+ debianutils (= 4.9.1),
+ dh-autoreconf (= 19),
+ dh-strip-nondeterminism (= 1.6.3-2),
+ diffutils (= 1:3.7-3),
+ dpkg (= 1.19.7),
+ dpkg-dev (= 1.19.7),
+ dwz (= 0.13-5),
+ fdisk (= 2.34-0.1),
+ file (= 1:5.38-4),
+ findutils (= 4.7.0-1),
+ g++ (= 4:9.2.1-3.1),
+ g++-9 (= 9.3.0-3),
+ g++-mingw-w64 (= 8.3.0-22+21.5),
+ g++-mingw-w64-i686 (= 8.3.0-26+21.5+b1),
+ g++-mingw-w64-x86-64 (= 8.3.0-26+21.5+b1),
+ gcc (= 4:9.2.1-3.1),
+ gcc-10-base (= 10-20200312-2),
+ gcc-7 (= 7.5.0-5),
+ gcc-7-base (= 7.5.0-5),
+ gcc-8-base (= 8.4.0-1),
+ gcc-9 (= 9.3.0-3),
+ gcc-9-base (= 9.3.0-3),
+ gcc-mingw-w64 (= 8.3.0-22+21.5),
+ gcc-mingw-w64-base (= 8.3.0-26+21.5+b1),
+ gcc-mingw-w64-i686 (= 8.3.0-26+21.5+b1),
+ gcc-mingw-w64-x86-64 (= 8.3.0-26+21.5+b1),
+ gettext (= 0.19.8.1-10),
+ gettext-base (= 0.19.8.1-10),
+ grep (= 3.4-1),
+ groff-base (= 1.22.4-4),
+ gzip (= 1.10-1),
+ hostname (= 3.23),
+ init-system-helpers (= 1.57),
+ intltool-debian (= 0.35.0+20060710.5),
+ less (= 551-1),
+ libacl1 (= 2.2.53-6),
+ libarchive-zip-perl (= 1.68-1),
+ libasan4 (= 7.5.0-5),
+ libasan5 (= 9.3.0-3),
+ libatomic1 (= 10-20200312-2),
+ libattr1 (= 1:2.4.48-5),
+ libaudit-common (= 1:2.8.5-2),
+ libaudit1 (= 1:2.8.5-2+b1),
+ libbinutils (= 2.34-4),
+ libblkid1 (= 2.34-0.1),
+ libbsd0 (= 0.10.0-1),
+ libbz2-1.0 (= 1.0.8-2),
+ libc-bin (= 2.30-2),
+ libc-dev-bin (= 2.30-2),
+ libc6 (= 2.30-2),
+ libc6-dev (= 2.30-2),
+ libcap-ng0 (= 0.7.9-2.1+b2),
+ libcc1-0 (= 10-20200312-2),
+ libcilkrts5 (= 7.5.0-5),
+ libcroco3 (= 0.6.13-1),
+ libcrypt-dev (= 1:4.4.15-1),
+ libcrypt1 (= 1:4.4.15-1),
+ libctf-nobfd0 (= 2.34-4),
+ libctf0 (= 2.34-4),
+ libdb5.3 (= 5.3.28+dfsg1-0.6),
+ libdebconfclient0 (= 0.251),
+ libdebhelper-perl (= 12.9),
+ libdpkg-perl (= 1.19.7),
+ libelf1 (= 0.176-1.1),
+ libfdisk1 (= 2.34-0.1),
+ libffi7 (= 3.3-3),
+ libfile-stripnondeterminism-perl (= 1.6.3-2),
+ libgcc-7-dev (= 7.5.0-5),
+ libgcc-9-dev (= 9.3.0-3),
+ libgcc-s1 (= 10-20200312-2),
+ libgcc1 (= 1:10-20200312-2),
+ libgcrypt20 (= 1.8.5-5),
+ libgdbm-compat4 (= 1.18.1-5),
+ libgdbm6 (= 1.18.1-5),
+ libglib2.0-0 (= 2.64.1-1),
+ libgmp10 (= 2:6.2.0+dfsg-4),
+ libgomp1 (= 10-20200312-2),
+ libgpg-error0 (= 1.37-1),
+ libicu63 (= 63.2-3),
+ libisl22 (= 0.22.1-1),
+ libitm1 (= 10-20200312-2),
+ liblsan0 (= 10-20200312-2),
+ liblz4-1 (= 1.9.2-2),
+ liblzma5 (= 5.2.4-1+b1),
+ libmagic-mgc (= 1:5.38-4),
+ libmagic1 (= 1:5.38-4),
+ libmount1 (= 2.34-0.1),
+ libmpc3 (= 1.1.0-1),
+ libmpfr6 (= 4.0.2-1),
+ libmpx2 (= 8.4.0-1),
+ libncursesw6 (= 6.2-1),
+ libpam-modules (= 1.3.1-5),
+ libpam-modules-bin (= 1.3.1-5),
+ libpam-runtime (= 1.3.1-5),
+ libpam0g (= 1.3.1-5),
+ libpcre2-8-0 (= 10.34-7),
+ libpcre3 (= 2:8.39-12+b1),
+ libperl5.30 (= 5.30.0-9),
+ libpipeline1 (= 1.5.2-2),
+ libquadmath0 (= 10-20200312-2),
+ libseccomp2 (= 2.4.3-1),
+ libselinux1 (= 3.0-1+b1),
+ libsigsegv2 (= 2.12-2),
+ libsmartcols1 (= 2.34-0.1),
+ libstdc++-9-dev (= 9.3.0-3),
+ libstdc++6 (= 10-20200312-2),
+ libsub-override-perl (= 0.09-2),
+ libsystemd0 (= 245.2-1),
+ libtext-unidecode-perl (= 1.30-1),
+ libtinfo6 (= 6.2-1),
+ libtool (= 2.4.6-14),
+ libtsan0 (= 10-20200312-2),
+ libubsan0 (= 7.5.0-5),
+ libubsan1 (= 10-20200312-2),
+ libuchardet0 (= 0.0.6-3),
+ libudev1 (= 245.2-1),
+ libunistring2 (= 0.9.10-2),
+ libuuid1 (= 2.34-0.1),
+ libxml-libxml-perl (= 2.0134+dfsg-2),
+ libxml-namespacesupport-perl (= 1.12-1),
+ libxml-sax-base-perl (= 1.09-1),
+ libxml-sax-perl (= 1.02+dfsg-1),
+ libxml2 (= 2.9.10+dfsg-4),
+ linux-libc-dev (= 5.4.19-1),
+ login (= 1:4.8.1-1),
+ lsb-base (= 11.1.0),
+ m4 (= 1.4.18-4),
+ make (= 4.2.1-1.2),
+ man-db (= 2.9.1-1),
+ mawk (= 1.3.4.20200120-2),
+ mingw-w64 (= 7.0.0-2),
+ mingw-w64-common (= 7.0.0-2),
+ mingw-w64-i686-dev (= 7.0.0-2),
+ mingw-w64-x86-64-dev (= 7.0.0-2),
+ ncurses-base (= 6.2-1),
+ ncurses-bin (= 6.2-1),
+ patch (= 2.7.6-6),
+ perl (= 5.30.0-9),
+ perl-base (= 5.30.0-9),
+ perl-modules-5.30 (= 5.30.0-9),
+ po-debconf (= 1.0.21),
+ sed (= 4.7-1),
+ sensible-utils (= 0.0.12+nmu1),
+ sysvinit-utils (= 2.96-2.1),
+ tar (= 1.30+dfsg-7),
+ tex-common (= 6.13),
+ texinfo (= 6.7.0.dfsg.2-5),
+ ucf (= 3.0038+nmu1),
+ util-linux (= 2.34-0.1),
+ xz-utils (= 5.2.4-1+b1),
+ zlib1g (= 1:1.2.11.dfsg-2)
+Environment:
+ DEB_BUILD_OPTIONS="parallel=8"
+ LANG="C"
+ LC_ALL="C"
+ SOURCE_DATE_EPOCH="1584637306"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEHguq2FwiMqGzzpLrtwRxBYMLn6EFAl5z4qsACgkQtwRxBYML
+n6Fx9w/8Dt+kthwVknNPWTSRJYpJn59b8gGceZGeeB+xTUCVQbdh1fhibyTE27E7
+Veofdb1N032dLIc70k1eAqd/6AK5QCPt6Lyxfy38QmQ7iE1hqZbXg3/3A2pAEqsN
+8yPFdYXASL+WchfKUhzeGIXkxxeKwLcFqtXMAey/Ebz1RwUkDfEiSGlj72DcFGyc
+JabclQtTyXV7Kn3orj8HasGdTzyfr2lMYuIPQDV5lucx+dHm0hggzJkj+AX1f0Wd
+PKRR9TfhydwnMC7GmKEMF2gjn1C+zoQHEdyeqp6DTLASdAXZuyygDaK8KejMphyR
+Sb2KPdK4YrN0nLZej0sDrQqMQL7rVMmo808q5GiRqLB3+8sdB28Rx3H63hMRW9BA
+ovqYXB87hGXizo+ZkhIBY2xBzGp07h+qzQDKMH7Am4qEIZZaP7RZECfXUGZQHMVl
+fBT/lVeAIT8ioYGXl5H5cnd2c5pMJeDR2VK/CyhadYFaHVP4a3U/AffMvR4DcHYj
+guLlFu635y2FXwofvobnuQA+AoTDEmQC14ifiU978gOLtntz5nST5VI3G1SHu5jb
+EyHEJ0qn7H8Ma4qYbCi5h+qFvQw1Y7lxJy/jvAXtPsleM6yeO6Ked6yrH4hpGYCi
+r+OXEShlk6OHqsRpOmdhCJKmbeD6/9gkh7MkG/ZH95IiSfIwYiw=
+=H/pH
+-----END PGP SIGNATURE-----
