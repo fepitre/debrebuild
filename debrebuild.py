@@ -29,6 +29,7 @@ import shutil
 import argparse
 import logging
 import apt
+import apt_pkg
 
 from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
@@ -322,7 +323,9 @@ class Rebuilder:
         self.extra_repository_files = extra_repository_files
         self.extra_repository_keys = extra_repository_keys
         self.gpg_keyid = gpg_keyid
+
         self.tempdir = None
+        self.tempaptcache = None
         self.required_timestamp_sources = []
 
         # WIP
@@ -396,11 +399,12 @@ class Rebuilder:
                 fd.write("\n{}".format(timestamp_source))
                 fd.seek(0)
 
-                cache = apt.Cache(rootdir=self.tempdir)
-                cache.update()
+                self.tempaptcache.open(None)
+                self.tempaptcache.update()
+                self.tempaptcache.close()
 
                 for notfound_pkg in notfound_packages:
-                    pkg = cache.get("{}:{}".format(
+                    pkg = self.tempaptcache.get("{}:{}".format(
                         notfound_pkg.name, notfound_pkg.architecture))
                     if pkg and pkg.versions.get(notfound_pkg.version):
                         notfound_packages.remove(notfound_pkg)
@@ -411,11 +415,11 @@ class Rebuilder:
 
         if notfound_packages:
             for notfound_pkg in notfound_packages:
-                logger.debug(notfound_pkg)
+                logger.debug(notfound_pkg.name)
             raise RebuilderException("Cannot locate the following packages via "
                                      "snapshots or the current repo/mirror")
 
-    def init_prechecks(self):
+    def prepare_aptcache(self):
         self.tempdir = tempfile.mkdtemp(prefix="debrebuilder-")
 
         # Create apt.conf
@@ -472,23 +476,13 @@ class Rebuilder:
                 self.tempdir, os.path.basename(keyring_src))
             os.symlink(keyring_src, keyring_dst)
 
-        # Set temporary APT_CONFIG and init APT
-        env = os.environ.copy()
-        env['APT_CONFIG'] = temp_apt_conf
-        result = subprocess.run(["apt-get", "update"], env=env)
-        if result.returncode != 0:
-            raise RebuilderException("apt-get update failed")
-
-    def clean_prechecks_tempdir(self):
-        temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempdir)
-        env = os.environ.copy()
-        env['APT_CONFIG'] = temp_apt_conf
-        result = subprocess.run(
-            ["apt-get", '--option', 'Dir::Etc::SourceList=/dev/null',
-             '--option', 'Dir::Etc::SourceParts=/dev/null', 'update'], env=env)
-        if result.returncode != 0:
-            raise RebuilderException("apt-get update failed")
-        shutil.rmtree(self.tempdir)
+        # Init temporary APT cache
+        try:
+            logger.debug("Initialize APT cache")
+            self.tempaptcache = apt.Cache(rootdir=self.tempdir, memonly=True)
+            self.tempaptcache.close()
+        except (PermissionError, apt_pkg.Error):
+            raise RebuilderException("Failed to initialize APT cache")
 
     def get_apt_build_depends(self):
         apt_build_depends = []
@@ -608,14 +602,18 @@ class Rebuilder:
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
-            self.init_prechecks()
+            self.prepare_aptcache()
             self.find_build_dependencies()
+        except apt_pkg.Error:
+            raise RebuilderException("Failed to fetch packages")
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
         finally:
             # WIP: allow any TMPDIR
             if self.tempdir and self.tempdir.startswith('/tmp/debrebuilder-'):
-                self.clean_prechecks_tempdir()
+                if self.tempaptcache:
+                    self.tempaptcache.close()
+                shutil.rmtree(self.tempdir)
 
         # Stage 2: Run the actual rebuild of provided buildinfo file
         if builder == "none":
