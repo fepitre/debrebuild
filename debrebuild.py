@@ -317,15 +317,14 @@ class Rebuilder:
         self.required_timestamp_sources = []
 
         # WIP
-        self.build = "binary"
-        # if self.buildinfo.build_archany and self.buildinfo.build_archall:
-        #     self.build = "binary"
-        # elif self.buildinfo.build_archany and not self.buildinfo.build_archall:
-        #     self.build = "any"
-        # elif not self.buildinfo.build_archany and self.buildinfo.build_archall:
-        #     self.build = "all"
-        # else:
-        #     raise RebuilderException("Nothing to build")
+        if self.buildinfo.build_archany and self.buildinfo.build_archall:
+            self.build = "binary"
+        elif self.buildinfo.build_archany and not self.buildinfo.build_archall:
+            self.build = "any"
+        elif not self.buildinfo.build_archany and self.buildinfo.build_archall:
+            self.build = "all"
+        else:
+            raise RebuilderException("Nothing to build")
 
     def get_env(self):
         env = []
@@ -621,13 +620,18 @@ class Rebuilder:
             raise RebuilderException(
                 "Refusing to overwrite the input buildinfo file")
 
+        # Stage 1: Parse provided buildinfo file and setup the rebuilder
         self.init_prechecks()
         self.verify_available_build_dependencies()
         self.clean_prechecks_tempdir()
+
+        # Stage 2: Run the actual rebuild of provided buildinfo file
         if builder == "none":
             return
         if builder == "mmdebstrap":
             self.mmdebstrap(output)
+
+        # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(new_buildinfo_file, self.snapshot_url)
         self.verify_checksums(new_buildinfo)
         self.generate_intoto_metadata(output, new_buildinfo)
