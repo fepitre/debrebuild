@@ -36,7 +36,7 @@ Highly inspired from original Debian tool `debrebuild` https://salsa.debian.org/
 #### EXAMPLES
 
 ```
-$ ./debrebuild.py --output=./artifacts --builder=mmdebstrap tests/gzip_1.10-2_all-amd64-source.buildinfo
+$ ./debrebuild.py --output=./artifacts --builder=mmdebstrap tests/data/gzip_1.10-2_all-amd64-source.buildinfo
 ```
 
 ####  BUILDERS
