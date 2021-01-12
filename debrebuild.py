@@ -328,16 +328,6 @@ class Rebuilder:
         self.tempaptcache = None
         self.required_timestamp_sources = []
 
-        # WIP
-        if self.buildinfo.build_archany and self.buildinfo.build_archall:
-            self.build = "binary"
-        elif self.buildinfo.build_archany and not self.buildinfo.build_archall:
-            self.build = "any"
-        elif not self.buildinfo.build_archany and self.buildinfo.build_archall:
-            self.build = "all"
-        else:
-            raise RebuilderException("Nothing to build")
-
     def get_env(self):
         env = []
         for key, val in self.buildinfo.env.items():
@@ -492,6 +482,16 @@ class Rebuilder:
         return apt_build_depends
 
     def mmdebstrap(self, output):
+        # WIP
+        if self.buildinfo.build_archany and self.buildinfo.build_archall:
+            build = "binary"
+        elif self.buildinfo.build_archany and not self.buildinfo.build_archall:
+            build = "any"
+        elif not self.buildinfo.build_archany and self.buildinfo.build_archall:
+            build = "all"
+        else:
+            raise RebuilderException("Nothing to build")
+
         cmd = [
             'env', '-i',
             'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
@@ -532,7 +532,7 @@ class Rebuilder:
                     'mkdir -p {}'.format(os.path.dirname(self.buildinfo.build_path)),
                     'dpkg-source --no-check -x /*.dsc {}'.format(self.buildinfo.build_path),
                     'cd {}'.format(self.buildinfo.build_path),
-                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, self.build)
+                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
             ))
         ]
@@ -589,22 +589,20 @@ class Rebuilder:
         logger.info("in-toto metadata generation: OK")
 
     def run(self, builder, output):
-        if self.build == "binary":
-            build_arch = self.buildinfo.host_arch
-        else:
-            build_arch = self.build
+        # Predict new buildinfo name created by builder
+        build_arch = self.buildinfo.host_arch
         new_buildinfo_file = "{}/{}_{}_{}.buildinfo".format(
             output, self.buildinfo.source, self.buildinfo.version, build_arch)
         logger.debug("New buildinfo file: {}".format(new_buildinfo_file))
         if os.path.exists(new_buildinfo_file):
             raise RebuilderException(
-                "Refusing to overwrite the input buildinfo file")
+                "Refusing to overwrite existing buildinfo file")
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
             self.prepare_aptcache()
             self.find_build_dependencies()
-        except apt_pkg.Error:
+        except (apt_pkg.Error, apt.cache.FetchFailedException, requests.exceptions.ConnectionError):
             raise RebuilderException("Failed to fetch packages")
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
