@@ -607,9 +607,15 @@ class Rebuilder:
                 "Refusing to overwrite the input buildinfo file")
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
-        self.init_prechecks()
-        self.find_build_dependencies()
-        self.clean_prechecks_tempdir()
+        try:
+            self.init_prechecks()
+            self.find_build_dependencies()
+        except KeyboardInterrupt:
+            raise RebuilderException("Interruption")
+        finally:
+            # WIP: allow any TMPDIR
+            if self.tempdir and self.tempdir.startswith('/tmp/debrebuilder-'):
+                self.clean_prechecks_tempdir()
 
         # Stage 2: Run the actual rebuild of provided buildinfo file
         if builder == "none":
