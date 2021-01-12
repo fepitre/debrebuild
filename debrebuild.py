@@ -201,7 +201,11 @@ class BuildInfo:
         if not self.debian_suite:
             for pkg in self.get_build_depends():
                 if str(pkg.name) == "base-files":
-                    self.debian_suite = DEBIAN_VERSION[pkg.version]
+                    try:
+                        self.debian_suite = DEBIAN_VERSION[pkg.version]
+                    except KeyError:
+                        raise BuildInfoException(
+                            "Cannot determine Debian version")
         return self.debian_suite
 
     def get_build_depends(self):
