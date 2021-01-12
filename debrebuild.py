@@ -430,20 +430,20 @@ class Rebuilder:
 
         with open(temp_apt_conf, "w") as fd:
             apt_conf = """
-        Apt {{
-           Architecture "{build_arch}";
-           Architectures "{build_arch}";
-        }};
+Apt {{
+   Architecture "{build_arch}";
+   Architectures "{build_arch}";
+}};
 
-        Dir "{tempdir}";
-        Dir::State::status "{tempdir}/var/lib/dpkg/status";
-        Acquire::Check-Valid-Until "false";
-        Acquire::Languages "none";
-        Acquire::http::Dl-Limit "1000";
-        Acquire::https::Dl-Limit "1000";
-        Acquire::Retries "5";
-        Binary::apt-get::Acquire::AllowInsecureRepositories "false";
-        """.format(build_arch=self.buildinfo.build_arch, tempdir=self.tempdir)
+Dir "{tempdir}";
+Dir::State::status "{tempdir}/var/lib/dpkg/status";
+Acquire::Check-Valid-Until "false";
+Acquire::Languages "none";
+Acquire::http::Dl-Limit "1000";
+Acquire::https::Dl-Limit "1000";
+Acquire::Retries "5";
+Binary::apt-get::Acquire::AllowInsecureRepositories "false";
+""".format(build_arch=self.buildinfo.build_arch, tempdir=self.tempdir)
             fd.write(apt_conf)
 
         with open(dpkg_status, "w") as fd:
