@@ -452,12 +452,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         with open(temp_sources_list, "w") as fd:
             fd.write("\n".join(self.get_sources_list()))
 
-        # WIP
         keyrings = [
             "/usr/share/keyrings/debian-archive-keyring.gpg",
-            "/usr/share/keyrings/debian-archive-buster-automatic.gpg",
-            "/usr/share/keyrings/debian-archive-buster-security-automatic.gpg",
-            "/usr/share/keyrings/debian-archive-buster-stable.gpg",
+            "/usr/share/keyrings/debian-archive-removed-keys.gpg",
         ]
         if self.extra_repository_keys:
             keyrings += self.extra_repository_keys
