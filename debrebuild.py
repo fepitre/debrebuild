@@ -134,6 +134,10 @@ class BuildInfo:
         self.required_timestamps = []
         self.debian_suite = None
 
+        if not os.path.exists(self.orig_file):
+            raise BuildInfoException(
+                "Cannot find buildinfo file: {}".format(self.orig_file))
+
         with open(self.orig_file) as fd:
             for paragraph in Deb822.iter_paragraphs(fd.read()):
                 for item in paragraph.items():
@@ -562,7 +566,7 @@ class Rebuilder:
         ]
 
         cmd += [
-            '--customize-hook=sync-out /build {}'.format(output),
+            '--customize-hook=sync-out {} {}'.format(os.path.dirname(self.buildinfo.build_path), output),
             self.buildinfo.get_debian_suite(),
             '/dev/null',
             'deb {}/{}/ {} main'.format(self.base_mirror, self.buildinfo.get_build_date(), self.buildinfo.get_debian_suite())
@@ -636,7 +640,8 @@ class Rebuilder:
             self.mmdebstrap(output)
 
         # Stage 3: Everything post-build actions with rebuild artifacts
-        new_buildinfo = BuildInfo(new_buildinfo_file, self.snapshot_url)
+        new_buildinfo = BuildInfo(
+            realpath(new_buildinfo_file), self.snapshot_url)
         self.verify_checksums(new_buildinfo)
         self.generate_intoto_metadata(output, new_buildinfo)
 
@@ -723,7 +728,7 @@ def main():
         args.extra_repository_key = [realpath(key_file) for key_file in
                                      args.extra_repository_key]
 
-    buildinfo = BuildInfo(args.buildinfo, args.query_url)
+    buildinfo = BuildInfo(realpath(args.buildinfo), args.query_url)
     rebuilder = Rebuilder(
         buildinfo=buildinfo,
         snapshot_url=args.query_url,
