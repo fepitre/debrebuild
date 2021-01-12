@@ -28,6 +28,7 @@ import subprocess
 import shutil
 import argparse
 import logging
+import apt
 
 from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
@@ -382,58 +383,35 @@ class Rebuilder:
                     self.base_mirror, timestamp))
         return sources_list
 
-    def get_available_packages(self):
-        env = os.environ
-        env['APT_CONFIG'] = self.tempdir + '/etc/apt/apt.conf'
-
-        result = subprocess.run(["apt-get", "update"], env=env)
-        if result.returncode != 0:
-            raise RebuilderException("apt-get update failed")
-
-        packages_files = []
-        apt_get_cmd = ['apt-get', 'indextargets', '--format', '$(FILENAME)',
-                       'Created-By: Packages']
-        apt_helper_cmd = ['/usr/lib/apt/apt-helper', 'cat-file']
-        try:
-            result = subprocess.check_output(apt_get_cmd, env=env)
-            indextargets = result.decode('utf8').strip('\n').split('\n')
-            for index in indextargets:
-                result = subprocess.check_output(
-                    apt_helper_cmd + [index], env=env)
-                raw_packages = result.decode('utf8').strip('\n').split('\n\n')
-                for pkg in raw_packages:
-                    parsed_pkg = parsePkgAptHelper(pkg.split('\n'))
-                    if parsed_pkg:
-                        packages_files.append(parsed_pkg)
-            return packages_files
-        except FileNotFoundError:
-            raise RebuilderException("Failed to get APT indextargets")
-
-    def verify_available_build_dependencies(self):
+    def find_build_dependencies(self):
         notfound_packages = self.buildinfo.build_depends[:]
         temp_sources_list = self.tempdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
             for timestamp_source in self.get_sources_list_from_timestamp():
-                self.required_timestamp_sources.append(timestamp_source)
-                fd.write("\n{}".format(timestamp_source))
-                fd.seek(0)
-                all_packages = [pkg.to_index_format()
-                                for pkg in self.get_available_packages()]
                 if not notfound_packages:
                     break
                 logger.info("Remaining packages to be found: {}".format(
                     len(notfound_packages)))
-                for pkg in notfound_packages:
-                    index = "{} {} {}".format(
-                        pkg.name, pkg.version, pkg.architecture)
-                    if index in all_packages:
-                        notfound_packages.remove(pkg)
+                self.required_timestamp_sources.append(timestamp_source)
+                fd.write("\n{}".format(timestamp_source))
+                fd.seek(0)
+
+                cache = apt.Cache(rootdir=self.tempdir)
+                cache.update()
+
+                for notfound_pkg in notfound_packages:
+                    pkg = cache.get("{}:{}".format(
+                        notfound_pkg.name, notfound_pkg.architecture))
+                    if pkg and pkg.versions.get(notfound_pkg.version):
+                        notfound_packages.remove(notfound_pkg)
                     else:
-                        logger.debug(index)
+                        logger.debug("{} {} {}".format(
+                            notfound_pkg.name, notfound_pkg.version,
+                            notfound_pkg.architecture))
 
         if notfound_packages:
-            for pkg in notfound_packages:
-                logger.debug(pkg)
+            for notfound_pkg in notfound_packages:
+                logger.debug(notfound_pkg)
             raise RebuilderException("Cannot locate the following packages via "
                                      "snapshots or the current repo/mirror")
 
@@ -630,7 +608,7 @@ class Rebuilder:
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         self.init_prechecks()
-        self.verify_available_build_dependencies()
+        self.find_build_dependencies()
         self.clean_prechecks_tempdir()
 
         # Stage 2: Run the actual rebuild of provided buildinfo file
