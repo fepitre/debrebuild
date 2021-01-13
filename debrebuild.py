@@ -478,16 +478,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 pkg.to_apt_install_format(self.buildinfo.build_arch))
         return apt_build_depends
 
-    def mmdebstrap(self, output):
-        # WIP
-        if self.buildinfo.build_archany and self.buildinfo.build_archall:
-            build = "binary"
-        elif self.buildinfo.build_archany and not self.buildinfo.build_archall:
-            build = "any"
-        elif not self.buildinfo.build_archany and self.buildinfo.build_archall:
-            build = "all"
+    def mmdebstrap(self, output, build_arch):
+        if build_arch in ("source", "all", "any"):
+            build = build_arch
         else:
-            raise RebuilderException("Nothing to build")
+            build = "binary"
 
         cmd = [
             'env', '-i',
@@ -585,9 +580,27 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             raise RebuilderException("in-toto metadata generation failed")
         logger.info("in-toto metadata generation: OK")
 
+    @staticmethod
+    def get_host_architecture():
+        try:
+            builder_architecture = subprocess.check_output(
+                ["dpkg", "--print-architecture"]).decode('utf8').rstrip('\n')
+        except FileNotFoundError:
+            raise RebuilderException("Cannot determinate builder host architecture")
+        return builder_architecture
+
     def run(self, builder, output):
         # Predict new buildinfo name created by builder
-        build_arch = self.buildinfo.host_arch
+        # Based on dpkg/scripts/dpkg-genbuildinfo.pl
+        if self.buildinfo.architecture:
+            build_arch = self.get_host_architecture()
+        elif self.buildinfo.build_archall:
+            build_arch = "all"
+        elif self.buildinfo.build_source:
+            build_arch = "source"
+        else:
+            raise RebuilderException("Nothing to build")
+
         new_buildinfo_file = "{}/{}_{}_{}.buildinfo".format(
             output, self.buildinfo.source, self.buildinfo.version, build_arch)
         logger.debug("New buildinfo file: {}".format(new_buildinfo_file))
@@ -614,7 +627,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if builder == "none":
             return
         if builder == "mmdebstrap":
-            self.mmdebstrap(output)
+            self.mmdebstrap(output, build_arch)
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(
