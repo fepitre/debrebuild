@@ -416,16 +416,11 @@ class Rebuilder:
 
         # Create apt.conf
         temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempdir)
-        # Create dpkg status
-        dpkg_status = "{}/var/lib/dpkg/status".format(self.tempdir)
         # Create sources.list
         temp_sources_list = "{}/etc/apt/sources.list".format(self.tempdir)
 
         apt_dirs = [
-            '/etc/apt', '/etc/apt/apt.conf.d',
-            '/etc/apt/preferences.d', '/etc/apt/trusted.gpg.d',
-            '/etc/apt/sources.list.d', '/var/lib/apt/lists/partial',
-            '/var/cache/apt/archives/partial', '/var/lib/dpkg',
+            '/etc/apt', '/etc/apt/trusted.gpg.d'
         ]
         for directory in apt_dirs:
             os.makedirs("{}/{}".format(self.tempdir, directory))
@@ -437,8 +432,6 @@ Apt {{
    Architectures "{build_arch}";
 }};
 
-Dir "{tempdir}";
-Dir::State::status "{tempdir}/var/lib/dpkg/status";
 Acquire::Check-Valid-Until "false";
 Acquire::Languages "none";
 Acquire::http::Dl-Limit "1000";
@@ -449,9 +442,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             if self.proxy:
                 apt_conf += '\nAcquire::http::proxy "{}";\n'.format(self.proxy)
             fd.write(apt_conf)
-
-        with open(dpkg_status, "w") as fd:
-            fd.write("")
 
         with open(temp_sources_list, "w") as fd:
             fd.write("\n".join(self.get_sources_list()))
