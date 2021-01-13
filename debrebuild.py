@@ -316,13 +316,15 @@ class Rebuilder:
     def __init__(self, buildinfo, snapshot_url,
                  base_mirror="http://snapshot.debian.org/archive/debian",
                  extra_repository_files=None, extra_repository_keys=None,
-                 gpg_keyid=None):
+                 gpg_keyid=None,
+                 proxy=None):
         self.buildinfo = buildinfo
         self.snapshot_url = snapshot_url
         self.base_mirror = base_mirror
         self.extra_repository_files = extra_repository_files
         self.extra_repository_keys = extra_repository_keys
         self.gpg_keyid = gpg_keyid
+        self.proxy = proxy
 
         self.tempdir = None
         self.tempaptcache = None
@@ -444,6 +446,8 @@ Acquire::https::Dl-Limit "1000";
 Acquire::Retries "5";
 Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 """.format(build_arch=self.buildinfo.build_arch, tempdir=self.tempdir)
+            if self.proxy:
+                apt_conf += '\nAcquire::http::proxy "{}";\n'.format(self.proxy)
             fd.write(apt_conf)
 
         with open(dpkg_status, "w") as fd:
@@ -497,6 +501,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--aptopt=Acquire::Retries "5";',
             '--aptopt=APT::Get::allow-downgrades "true";'
         ]
+        if self.proxy:
+            cmd += [
+                '--aptopt=Acquire::http::proxy "{}";'.format(self.proxy)
+            ]
         if self.extra_repository_keys:
             cmd += [
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
@@ -680,6 +688,10 @@ def get_args():
         help="GPG keyid to use for signing in-toto metadata."
     )
     parser.add_argument(
+        "--proxy",
+        help="Proxy address to use."
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Display logger info messages."
@@ -724,7 +736,8 @@ def main():
         snapshot_url=args.query_url,
         extra_repository_files=args.extra_repository_file,
         extra_repository_keys=args.extra_repository_key,
-        gpg_keyid=args.gpg_keyid
+        gpg_keyid=args.gpg_keyid,
+        proxy=args.proxy
     )
     rebuilder.run(builder=args.builder, output=realpath(args.output))
 
