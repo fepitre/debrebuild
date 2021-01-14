@@ -117,9 +117,8 @@ class Package:
 
 
 class BuildInfo:
-    def __init__(self, buildinfo_file, snapshot_url):
+    def __init__(self, buildinfo_file):
         self.orig_file = buildinfo_file
-        self.snapshot_url = snapshot_url
 
         self.source = None
         self.architecture = None
@@ -217,99 +216,12 @@ class BuildInfo:
     def get_build_depends(self):
         return self.build_depends
 
-    def get_src_date(self):
-        srcpkgname = self.source
-        srcpkgver = self.version
-        json_url = "/mr/package/{}/{}/srcfiles?fileinfo=1".format(
-            srcpkgname, srcpkgver)
-        json_url = self.snapshot_url + json_url
-        resp = requests.get(json_url)
-        data = resp.json()
-
-        package_from_main = []
-        for result in data.get('result', []):
-            for val in data.get('fileinfo', {}).get(result['hash']):
-                if val['archive_name'] == 'debian' and \
-                        val['name'].endswith('.dsc'):
-                    package_from_main.append(val)
-        if len(package_from_main) > 1:
-            raise RebuilderException(
-                "More than one package with the same hash in Debian official")
-        if not package_from_main:
-            raise RebuilderException(
-                "No package with the right hash in Debian official")
-
-        return package_from_main[0]['first_seen']
-
     def get_build_date(self):
         try:
             return parsedate(self.build_date).strftime(
                 "%Y%m%dT%H%M%SZ")
         except ValueError as e:
             raise RebuilderException("Cannot parse 'Build-Date': %s" % e)
-
-    def get_bin_date(self, package):
-        pkgname = package.name
-        pkgver = package.version
-        pkgarch = package.architecture
-        json_url = "/mr/binary/{}/{}/binfiles?fileinfo=1".format(
-            pkgname, pkgver)
-        json_url = self.snapshot_url + json_url
-        resp = requests.get(json_url)
-        try:
-            data = resp.json()
-        except json.decoder.JSONDecodeError:
-            raise RebuilderException(
-                "Cannot parse response for package: {}".format(package.name))
-
-        pkghash = None
-        if len(data.get('result', [])) == 1:
-            pkghash = data['result'][0]['hash']
-            package.architecture = data['result'][0]['architecture']
-            if pkgarch and pkgarch != package.architecture:
-                raise RebuilderException(
-                    "Package {} was explicitly requested {} but only {} was "
-                    "found".format(pkgname, pkgarch, package.architecture))
-            if not pkgarch and self.build_arch != package.architecture and \
-                    "all" != package.architecture:
-                raise RebuilderException(
-                    "Package {} was implicitly requested {} but only {} was "
-                    "found".format(
-                        pkgname, self.build_arch, package.architecture))
-            pkgarch = package.architecture
-        else:
-            if not pkgarch:
-                pkgarch = self.build_arch
-            for result in data.get('result', []):
-                if result['architecture'] == pkgarch:
-                    pkghash = result['hash']
-                    break
-            if not pkghash:
-                raise RebuilderException(
-                    "Cannot find package in architecture {}".format(pkgarch))
-            package.architecture = pkgarch
-
-        package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if
-                             pkg['archive_name'] == 'debian']
-        if len(package_from_main) > 1:
-            raise RebuilderException(
-                "More than one package with the same hash in Debian official")
-        if not package_from_main:
-            raise RebuilderException(
-                "No package with the right hash in Debian official")
-        package.first_seen = package_from_main[0]['first_seen']
-        package.hash = pkghash
-        return package.first_seen
-
-    def get_build_depends_timestamps(self):
-        for pkg in self.get_build_depends():
-            if not pkg.first_seen:
-                self.get_bin_date(pkg)
-            self.required_timestamps.append(
-                parsedate(pkg.first_seen).strftime("%Y%m%dT%H%M%SZ"))
-        self.required_timestamps = sorted(
-            list(set(self.required_timestamps)), reverse=True)
-        return self.required_timestamps
 
 
 class Rebuilder:
@@ -336,13 +248,23 @@ class Rebuilder:
             env.append("{}=\"{}\"".format(key, val))
         return env
 
+    def get_response(self, url):
+        proxies = {}
+        if self.proxy:
+            # WIP: improve
+            proxies = {
+                "http:": self.proxy,
+                "https": self.proxy
+            }
+        resp = requests.get(url, proxies=proxies)
+        return resp
+
     def get_sources_list(self):
         sources_list = []
         url = "{}/{}".format(self.base_mirror, self.buildinfo.get_build_date())
         base_dist = self.buildinfo.get_debian_suite()
-
         release_url = "{}/dists/{}/Release".format(url, base_dist)
-        resp = requests.get(release_url)
+        resp = self.get_response(release_url)
         if resp.ok:
             sources_list.append("deb {}/ {} main".format(url, base_dist))
             sources_list.append("deb-src {}/ unstable main".format(url))
@@ -365,18 +287,113 @@ class Rebuilder:
 
         return sources_list
 
+    def get_build_depends_timestamps(self):
+        required_timestamps = []
+        for pkg in self.buildinfo.get_build_depends():
+            if not pkg.first_seen:
+                self.get_bin_date(pkg)
+            required_timestamps.append(
+                parsedate(pkg.first_seen).strftime("%Y%m%dT%H%M%SZ"))
+        required_timestamps = sorted(
+            list(set(required_timestamps)), reverse=True)
+        return required_timestamps
+
     def get_sources_list_from_timestamp(self):
         sources_list = []
         # Check snapshot mirror validity
-        for timestamp in self.buildinfo.get_build_depends_timestamps():
+        for timestamp in self.get_build_depends_timestamps():
             url = "{}/{}".format(
                 self.base_mirror, self.buildinfo.get_build_date())
             release_url = "{}/dists/{}/Release".format(
                 url, self.buildinfo.get_debian_suite())
-            if requests.get(release_url).ok:
+            resp = self.get_response(release_url)
+            if resp.ok:
                 sources_list.append("deb {}/{} unstable main".format(
                     self.base_mirror, timestamp))
         return sources_list
+
+    def get_src_date(self):
+        logger.debug("Get source package info: {}".format(self.buildinfo.source))
+        srcpkgname = self.buildinfo.source
+        srcpkgver = self.buildinfo.version
+        json_url = "/mr/package/{}/{}/srcfiles?fileinfo=1".format(
+            srcpkgname, srcpkgver)
+        json_url = self.snapshot_url + json_url
+        resp = self.get_response(json_url)
+        try:
+            data = resp.json()
+        except json.decoder.JSONDecodeError:
+            raise RebuilderException(
+                "Cannot parse response for source: {}".format(self.buildinfo.source))
+
+        package_from_main = []
+        for result in data.get('result', []):
+            for val in data.get('fileinfo', {}).get(result['hash']):
+                if val['archive_name'] == 'debian' and \
+                        val['name'].endswith('.dsc'):
+                    package_from_main.append(val)
+        if len(package_from_main) > 1:
+            raise RebuilderException(
+                "More than one package with the same hash in Debian official")
+        if not package_from_main:
+            raise RebuilderException(
+                "No package with the right hash in Debian official")
+
+        return package_from_main[0]['first_seen']
+
+    def get_bin_date(self, package):
+        logger.debug("Get binary package info: {}".format(package.name))
+        pkgname = package.name
+        pkgver = package.version
+        pkgarch = package.architecture
+        json_url = "/mr/binary/{}/{}/binfiles?fileinfo=1".format(
+            pkgname, pkgver)
+        json_url = self.snapshot_url + json_url
+        resp = self.get_response(json_url)
+        try:
+            data = resp.json()
+        except json.decoder.JSONDecodeError:
+            raise RebuilderException(
+                "Cannot parse response for package: {}".format(package.name))
+
+        pkghash = None
+        if len(data.get('result', [])) == 1:
+            pkghash = data['result'][0]['hash']
+            package.architecture = data['result'][0]['architecture']
+            if pkgarch and pkgarch != package.architecture:
+                raise RebuilderException(
+                    "Package {} was explicitly requested {} but only {} was "
+                    "found".format(pkgname, pkgarch, package.architecture))
+            if not pkgarch and self.buildinfo.build_arch != package.architecture and \
+                    "all" != package.architecture:
+                raise RebuilderException(
+                    "Package {} was implicitly requested {} but only {} was "
+                    "found".format(
+                        pkgname, self.buildinfo.build_arch, package.architecture))
+            pkgarch = package.architecture
+        else:
+            if not pkgarch:
+                pkgarch = self.buildinfo.build_arch
+            for result in data.get('result', []):
+                if result['architecture'] == pkgarch:
+                    pkghash = result['hash']
+                    break
+            if not pkghash:
+                raise RebuilderException(
+                    "Cannot find package in architecture {}".format(pkgarch))
+            package.architecture = pkgarch
+
+        package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if
+                             pkg['archive_name'] == 'debian']
+        if len(package_from_main) > 1:
+            raise RebuilderException(
+                "More than one package with the same hash in Debian official")
+        if not package_from_main:
+            raise RebuilderException(
+                "No package with the right hash in Debian official")
+        package.first_seen = package_from_main[0]['first_seen']
+        package.hash = pkghash
+        return package.first_seen
 
     def find_build_dependencies(self):
         notfound_packages = self.buildinfo.build_depends[:]
@@ -608,9 +625,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
+            self.get_src_date()
             self.prepare_aptcache()
             self.find_build_dependencies()
-        except (apt_pkg.Error, apt.cache.FetchFailedException, requests.exceptions.ConnectionError):
+        except (apt_pkg.Error, apt.cache.FetchFailedException,
+                requests.exceptions.ConnectionError):
             raise RebuilderException("Failed to fetch packages")
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
@@ -628,8 +647,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             self.mmdebstrap(output, build_arch)
 
         # Stage 3: Everything post-build actions with rebuild artifacts
-        new_buildinfo = BuildInfo(
-            realpath(new_buildinfo_file), self.snapshot_url)
+        new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
         self.verify_checksums(new_buildinfo)
         self.generate_intoto_metadata(output, new_buildinfo)
 
@@ -720,7 +738,7 @@ def main():
         args.extra_repository_key = [realpath(key_file) for key_file in
                                      args.extra_repository_key]
 
-    buildinfo = BuildInfo(realpath(args.buildinfo), args.query_url)
+    buildinfo = BuildInfo(realpath(args.buildinfo))
     rebuilder = Rebuilder(
         buildinfo=buildinfo,
         snapshot_url=args.query_url,
