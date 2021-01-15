@@ -313,9 +313,10 @@ class Rebuilder:
         return sources_list
 
     def get_src_date(self):
-        logger.debug("Get source package info: {}".format(self.buildinfo.source))
         srcpkgname = self.buildinfo.source
         srcpkgver = self.buildinfo.version
+        logger.debug("Get source package info: {}={}".format(
+            srcpkgname, srcpkgver))
         json_url = "/mr/package/{}/{}/srcfiles?fileinfo=1".format(
             srcpkgname, srcpkgver)
         json_url = self.snapshot_url + json_url
@@ -342,10 +343,11 @@ class Rebuilder:
         return package_from_main[0]['first_seen']
 
     def get_bin_date(self, package):
-        logger.debug("Get binary package info: {}".format(package.name))
         pkgname = package.name
         pkgver = package.version
         pkgarch = package.architecture
+        logger.debug("Get binary package info: {}={}".format(
+            pkgname, pkgver))
         json_url = "/mr/binary/{}/{}/binfiles?fileinfo=1".format(
             pkgname, pkgver)
         json_url = self.snapshot_url + json_url
@@ -405,10 +407,11 @@ class Rebuilder:
                 logger.info("Remaining packages to be found: {}".format(
                     len(notfound_packages)))
                 self.required_timestamp_sources.append(timestamp_source)
+                logger.debug("Timestamp source: {}".format(timestamp_source))
                 fd.write("\n{}".format(timestamp_source))
                 fd.seek(0)
 
-                self.tempaptcache.open(None)
+                self.tempaptcache.open()
                 self.tempaptcache.update()
                 self.tempaptcache.close()
 
@@ -417,10 +420,10 @@ class Rebuilder:
                         notfound_pkg.name, notfound_pkg.architecture))
                     if pkg and pkg.versions.get(notfound_pkg.version):
                         notfound_packages.remove(notfound_pkg)
-                    else:
-                        logger.debug("{} {} {}".format(
-                            notfound_pkg.name, notfound_pkg.version,
-                            notfound_pkg.architecture))
+                    # else:
+                    #     logger.debug("{} {} {}".format(
+                    #         notfound_pkg.name, notfound_pkg.version,
+                    #         notfound_pkg.architecture))
 
         if notfound_packages:
             for notfound_pkg in notfound_packages:
