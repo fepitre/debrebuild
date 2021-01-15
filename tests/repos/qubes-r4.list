@@ -1,0 +1,2 @@
+deb [arch=amd64] http://deb.qubes-os.org/all-versions/r4.1/vm bullseye main
+deb-src [arch=amd64] http://deb.qubes-os.org/all-versions/r4.1/vm bullseye main
