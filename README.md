@@ -3,7 +3,7 @@ debrebuilder
 
 ```
 usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--extra-repository-file EXTRA_REPOSITORY_FILE]
-                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-keyid GPG_KEYID] [--verbose] [--debug]
+                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-keyid GPG_KEYID] [--proxy PROXY] [--verbose] [--debug]
                      buildinfo
 
 Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the
@@ -15,7 +15,7 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   --output OUTPUT       Directory for the build artifacts (default: ./)
-  --builder BUILDER     Which building software should be used. (default: mmdebstrap)
+  --builder BUILDER     Which building software should be used. (default: none)
   --query-url QUERY_URL
                         API url for querying package and binary information (default: http://snapshot.debian.org)
   --extra-repository-file EXTRA_REPOSITORY_FILE
@@ -24,6 +24,7 @@ optional arguments:
                         Add key file (.asc) to the list of trusted keys during the package build.
   --gpg-keyid GPG_KEYID
                         GPG keyid to use for signing in-toto metadata.
+  --proxy PROXY         Proxy address to use.
   --verbose             Display logger info messages.
   --debug               Display logger debug messages.
 ```
