@@ -240,6 +240,11 @@ class Rebuilder:
         self.extra_repository_keys = extra_repository_keys
         self.gpg_keyid = gpg_keyid
         self.proxy = proxy
+        self.session = requests.Session()
+        self.session.proxies = {
+                "http:": self.proxy,
+                "https": self.proxy
+            }
 
         self.tempdir = None
         self.tempaptcache = None
@@ -252,14 +257,7 @@ class Rebuilder:
         return env
 
     def get_response(self, url):
-        proxies = {}
-        if self.proxy:
-            # WIP: improve
-            proxies = {
-                "http:": self.proxy,
-                "https": self.proxy
-            }
-        resp = requests.get(url, proxies=proxies)
+        resp = self.session.get(url)
         return resp
 
     def get_sources_list(self):
@@ -271,6 +269,7 @@ class Rebuilder:
         if resp.ok:
             sources_list.append("deb {}/ {} main".format(url, base_dist))
             sources_list.append("deb-src {}/ unstable main".format(url))
+        resp.close()
 
         # WIP
         sources_list.append(
