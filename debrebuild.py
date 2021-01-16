@@ -417,7 +417,7 @@ class Rebuilder:
                 self.tempaptcache.update()
                 self.tempaptcache.close()
 
-                for notfound_pkg in notfound_packages:
+                for notfound_pkg in notfound_packages[:]:
                     pkg = self.tempaptcache.get("{}:{}".format(
                         notfound_pkg.name, notfound_pkg.architecture))
                     if pkg and pkg.versions.get(notfound_pkg.version):
