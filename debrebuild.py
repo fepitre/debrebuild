@@ -115,6 +115,9 @@ class Package:
                 self.name, self.architecture, self.version)
         return result
 
+    def __repr__(self):
+        return f'Package({self.name}, {self.version}, architecture={self.architecture})'
+
 
 class BuildInfo:
     def __init__(self, buildinfo_file):
@@ -237,6 +240,11 @@ class Rebuilder:
         self.extra_repository_keys = extra_repository_keys
         self.gpg_keyid = gpg_keyid
         self.proxy = proxy
+        self.session = requests.Session()
+        self.session.proxies = {
+                "http:": self.proxy,
+                "https": self.proxy
+            }
 
         self.tempdir = None
         self.tempaptcache = None
@@ -249,14 +257,7 @@ class Rebuilder:
         return env
 
     def get_response(self, url):
-        proxies = {}
-        if self.proxy:
-            # WIP: improve
-            proxies = {
-                "http:": self.proxy,
-                "https": self.proxy
-            }
-        resp = requests.get(url, proxies=proxies)
+        resp = self.session.get(url)
         return resp
 
     def get_sources_list(self):
@@ -268,6 +269,7 @@ class Rebuilder:
         if resp.ok:
             sources_list.append("deb {}/ {} main".format(url, base_dist))
             sources_list.append("deb-src {}/ unstable main".format(url))
+        resp.close()
 
         # WIP
         sources_list.append(
@@ -288,28 +290,32 @@ class Rebuilder:
         return sources_list
 
     def get_build_depends_timestamps(self):
-        required_timestamps = []
+        """
+            Returns a list of tuple(timestamp, pkgs)
+            where pkgs is a list of packages living there
+        """
+        required_timestamps = {}
         for pkg in self.buildinfo.get_build_depends():
             if not pkg.first_seen:
                 self.get_bin_date(pkg)
-            required_timestamps.append(
-                parsedate(pkg.first_seen).strftime("%Y%m%dT%H%M%SZ"))
-        required_timestamps = sorted(
-            list(set(required_timestamps)), reverse=True)
+            required_timestamps.setdefault(
+                parsedate(pkg.first_seen).strftime("%Y%m%dT%H%M%SZ"), []).append(pkg)
+        # sort by the number of packages found there, convert to list of tuples
+        required_timestamps = sorted(required_timestamps.items(),
+                key=lambda x: len(x[1]), reverse=True)
         return required_timestamps
 
     def get_sources_list_from_timestamp(self):
+        """
+            Returns a list of tuple(source_list, pkgs)
+            where pkgs is a list of packages living there
+        """
         sources_list = []
         # Check snapshot mirror validity
-        for timestamp in self.get_build_depends_timestamps():
-            url = "{}/{}".format(
-                self.base_mirror, self.buildinfo.get_build_date())
-            release_url = "{}/dists/{}/Release".format(
-                url, self.buildinfo.get_debian_suite())
-            resp = self.get_response(release_url)
-            if resp.ok:
-                sources_list.append("deb {}/{} unstable main".format(
-                    self.base_mirror, timestamp))
+        for timestamp, pkgs in self.get_build_depends_timestamps():
+            sources_list.append(
+                ("deb {}/{} unstable main".format(self.base_mirror, timestamp),
+                 pkgs))
         return sources_list
 
     def get_src_date(self):
@@ -401,13 +407,16 @@ class Rebuilder:
         notfound_packages = self.buildinfo.build_depends[:]
         temp_sources_list = self.tempdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
-            for timestamp_source in self.get_sources_list_from_timestamp():
+            for timestamp_source, pkgs in self.get_sources_list_from_timestamp():
                 if not notfound_packages:
                     break
+                if not any(pkg in notfound_packages for pkg in pkgs):
+                    logger.info("Skipping snapshot: {}".format(timestamp_source))
+                    continue
                 logger.info("Remaining packages to be found: {}".format(
                     len(notfound_packages)))
                 self.required_timestamp_sources.append(timestamp_source)
-                logger.debug("Timestamp source: {}".format(timestamp_source))
+                logger.debug("Timestamp source ({} packages): {}".format(len(pkgs), timestamp_source))
                 fd.write("\n{}".format(timestamp_source))
                 fd.seek(0)
 
@@ -415,7 +424,7 @@ class Rebuilder:
                 self.tempaptcache.update()
                 self.tempaptcache.close()
 
-                for notfound_pkg in notfound_packages:
+                for notfound_pkg in notfound_packages[:]:
                     pkg = self.tempaptcache.get("{}:{}".format(
                         notfound_pkg.name, notfound_pkg.architecture))
                     if pkg and pkg.versions.get(notfound_pkg.version):
