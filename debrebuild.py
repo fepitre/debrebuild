@@ -259,20 +259,19 @@ class Rebuilder:
                 buildinfo_file.startswith('https://'):
             try:
                 resp = self.session.get(buildinfo_file)
-                if resp.ok:
-                    buildinfo_filename = buildinfo_file.split('/')[-1]
-                    tmpdir = os.environ.get('TMPDIR', '/tmp')
-                    buildinfo_file = os.path.join(tmpdir, buildinfo_filename)
-                    if os.path.exists(buildinfo_file):
-                        raise RebuilderException(
-                            "Refusing to overwrite existing buildinfo "
-                            "file: {}".format(buildinfo_file))
-                    with open(buildinfo_file, 'w') as fd:
-                        fd.write(resp.text)
-                else:
-                    raise RebuilderException("Cannot get buildinfo content")
-            except requests.exceptions.ConnectionError:
-                raise RebuilderException("Cannot get buildinfo")
+                resp.raise_for_status()
+                buildinfo_filename = buildinfo_file.split('/')[-1]
+                tmpdir = os.environ.get('TMPDIR', '/tmp')
+                buildinfo_file = os.path.join(tmpdir, buildinfo_filename)
+                if os.path.exists(buildinfo_file):
+                    raise RebuilderException(
+                        "Refusing to overwrite existing buildinfo "
+                        "file: {}".format(buildinfo_file))
+                with open(buildinfo_file, 'w') as fd:
+                    fd.write(resp.text)
+            except (requests.exceptions.ConnectionError,
+                    requests.exceptions.HTTPError) as e:
+                raise RebuilderException("Cannot get buildinfo: {}".format(e))
         else:
             buildinfo_file = realpath(buildinfo_file)
 
