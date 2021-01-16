@@ -115,6 +115,9 @@ class Package:
                 self.name, self.architecture, self.version)
         return result
 
+    def __repr__(self):
+        return f'Package({self.name}, {self.version}, architecture={self.architecture})'
+
 
 class BuildInfo:
     def __init__(self, buildinfo_file):
