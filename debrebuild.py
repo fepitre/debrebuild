@@ -30,6 +30,9 @@ import argparse
 import logging
 import apt
 import apt_pkg
+from gemato.openpgp import IsolatedGPGEnvironment
+from gemato.exceptions import OpenPGPVerificationFailure, \
+    OpenPGPKeyImportError, OpenPGPUnknownSigFailure, OpenPGPUntrustedSigFailure
 
 from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
@@ -228,17 +231,19 @@ class BuildInfo:
 
 
 class Rebuilder:
-    def __init__(self, buildinfo, snapshot_url,
+    def __init__(self, buildinfo_file, snapshot_url,
                  base_mirror="http://snapshot.debian.org/archive/debian",
                  extra_repository_files=None, extra_repository_keys=None,
-                 gpg_keyid=None,
+                 gpg_sign_keyid=None,
+                 gpg_verify=False,
+                 gpg_verify_key=None,
                  proxy=None):
-        self.buildinfo = buildinfo
+        self.buildinfo = None
         self.snapshot_url = snapshot_url
         self.base_mirror = base_mirror
         self.extra_repository_files = extra_repository_files
         self.extra_repository_keys = extra_repository_keys
-        self.gpg_keyid = gpg_keyid
+        self.gpg_sign_keyid = gpg_sign_keyid
         self.proxy = proxy
         self.session = requests.Session()
         self.session.proxies = {
@@ -249,6 +254,48 @@ class Rebuilder:
         self.tempdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = []
+
+        if buildinfo_file.startswith('http://') or \
+                buildinfo_file.startswith('https://'):
+            try:
+                resp = self.session.get(buildinfo_file)
+                if resp.ok:
+                    buildinfo_filename = buildinfo_file.split('/')[-1]
+                    tmpdir = os.environ.get('TMPDIR', '/tmp')
+                    buildinfo_file = os.path.join(tmpdir, buildinfo_filename)
+                    if os.path.exists(buildinfo_file):
+                        raise RebuilderException(
+                            "Refusing to overwrite existing buildinfo "
+                            "file: {}".format(buildinfo_file))
+                    with open(buildinfo_file, 'w') as fd:
+                        fd.write(resp.text)
+                else:
+                    raise RebuilderException("Cannot get buildinfo content")
+            except requests.exceptions.ConnectionError:
+                raise RebuilderException("Cannot get buildinfo")
+        else:
+            buildinfo_file = realpath(buildinfo_file)
+
+        if gpg_verify and gpg_verify_key:
+            gpg_env = IsolatedGPGEnvironment()
+            try:
+                for key in gpg_verify_key:
+                    with open(key, 'rb') as fd:
+                        gpg_env.import_key(fd)
+                with open(buildinfo_file, 'r') as fd:
+                    data = gpg_env.verify_file(fd)
+                    logger.info(
+                        "GPG ({}): OK".format(data.primary_key_fingerprint))
+            except OpenPGPKeyImportError:
+                raise RebuilderException("Cannot import provided GPG keyring")
+            except (OpenPGPVerificationFailure, OpenPGPUnknownSigFailure,
+                    OpenPGPUntrustedSigFailure):
+                raise RebuilderException(
+                    "Failed to verify buildinfo GPG signature")
+            finally:
+                gpg_env.close()
+
+        self.buildinfo = BuildInfo(buildinfo_file)
 
     def get_env(self):
         env = []
@@ -441,7 +488,8 @@ class Rebuilder:
                                      "snapshots or the current repo/mirror")
 
     def prepare_aptcache(self):
-        self.tempdir = tempfile.mkdtemp(prefix="debrebuilder-")
+        self.tempdir = tempfile.mkdtemp(prefix="debrebuilder-",
+                                        dir=os.environ.get('TMPDIR', '/tmp'))
 
         # Create apt.conf
         temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempdir)
@@ -599,8 +647,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             "/usr/local/bin/in-toto-run", "--step-name=rebuild", "--no-command",
             "--products"
         ] + list(new_files)
-        if self.gpg_keyid:
-            cmd += ["--gpg", self.gpg_keyid]
+        if self.gpg_sign_keyid:
+            cmd += ["--gpg", self.gpg_sign_keyid]
         else:
             cmd += ["--gpg"]
         if subprocess.run(cmd, cwd=output).returncode != 0:
@@ -646,8 +694,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
         finally:
-            # WIP: allow any TMPDIR
-            if self.tempdir and self.tempdir.startswith('/tmp/debrebuilder-'):
+            tmpdir=os.environ.get('TMPDIR', '/tmp')
+            if self.tempdir and self.tempdir.startswith(
+                    os.path.join(tmpdir, 'debrebuilder-')):
                 if self.tempaptcache:
                     self.tempaptcache.close()
                 shutil.rmtree(self.tempdir)
@@ -673,7 +722,7 @@ def get_args():
     )
     parser.add_argument(
         "buildinfo",
-        help="Input buildinfo file"
+        help="Input buildinfo file. Local or remote file."
     )
     parser.add_argument(
         "--output",
@@ -704,8 +753,18 @@ def get_args():
         action="append"
     )
     parser.add_argument(
-        "--gpg-keyid",
+        "--gpg-sign-keyid",
         help="GPG keyid to use for signing in-toto metadata."
+    )
+    parser.add_argument(
+        "--gpg-verify",
+        help="Verify buildinfo GPG signature.",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--gpg-verify-key",
+        help="GPG key to use for buildinfo GPG check.",
+        action="append"
     )
     parser.add_argument(
         "--proxy",
@@ -742,21 +801,31 @@ def main():
         logger.error("Unknown builder: {}".format(args.builder))
         return 1
 
+    if args.gpg_verify_key:
+        args.gpg_verify_key = \
+            [realpath(key_file) for key_file in args.gpg_verify_key]
+
     if args.extra_repository_file:
-        args.extra_repository_file = [realpath(repo_file) for repo_file in
-                                      args.extra_repository_file]
+        args.extra_repository_file = \
+            [realpath(repo_file) for repo_file in args.extra_repository_file]
 
     if args.extra_repository_key:
-        args.extra_repository_key = [realpath(key_file) for key_file in
-                                     args.extra_repository_key]
+        args.extra_repository_key = \
+            [realpath(key_file) for key_file in args.extra_repository_key]
 
-    buildinfo = BuildInfo(realpath(args.buildinfo))
+    if args.gpg_verify and not args.gpg_verify_key:
+        logger.error(
+            "Cannot verify buildinfo signature without GPG keyring provided")
+        return 1
+
     rebuilder = Rebuilder(
-        buildinfo=buildinfo,
+        buildinfo_file=args.buildinfo,
         snapshot_url=args.query_url,
         extra_repository_files=args.extra_repository_file,
         extra_repository_keys=args.extra_repository_key,
-        gpg_keyid=args.gpg_keyid,
+        gpg_sign_keyid=args.gpg_sign_keyid,
+        gpg_verify=args.gpg_verify,
+        gpg_verify_key=args.gpg_verify_key,
         proxy=args.proxy
     )
     rebuilder.run(builder=args.builder, output=realpath(args.output))
@@ -764,4 +833,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
