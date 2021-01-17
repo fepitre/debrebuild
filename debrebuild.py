@@ -464,11 +464,12 @@ class Rebuilder:
                 self.required_timestamp_sources.append(timestamp_source)
                 logger.debug("Timestamp source ({} packages): {}".format(len(pkgs), timestamp_source))
                 fd.write("\n{}".format(timestamp_source))
-                fd.seek(0)
+                fd.flush()
 
+                # provides sources.list explicitly, otherwise `update()`
+                # doesn't reload it until the next `open()`
+                self.tempaptcache.update(sources_list=temp_sources_list)
                 self.tempaptcache.open()
-                self.tempaptcache.update()
-                self.tempaptcache.close()
 
                 for notfound_pkg in notfound_packages[:]:
                     pkg = self.tempaptcache.get("{}:{}".format(
@@ -479,6 +480,8 @@ class Rebuilder:
                     #     logger.debug("{} {} {}".format(
                     #         notfound_pkg.name, notfound_pkg.version,
                     #         notfound_pkg.architecture))
+
+                self.tempaptcache.close()
 
         if notfound_packages:
             for notfound_pkg in notfound_packages:
