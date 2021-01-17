@@ -15,9 +15,8 @@ fi
 
 localdir="$(readlink -f "$(dirname "$0")")"
 
-COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap"
-QUBES_OPTS="--query-url https://ancient-tundra-75419.herokuapp.com"
-QUBES_OPTS="$QUBES_OPTS --extra-repository-file $localdir/repos/qubes-r4.list --extra-repository-key $localdir/keys/qubes-debian-r4.asc"
+COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap --query-url https://ancient-tundra-75419.herokuapp.com"
+QUBES_OPTS="--extra-repository-file $localdir/repos/qubes-r4.list --extra-repository-key $localdir/keys/qubes-debian-r4.asc"
 QUBES_OPTS="$QUBES_OPTS --gpg-verify --gpg-verify-key $localdir/keys/qubes-debian-r4.asc"
 
 echo_info() {
@@ -56,7 +55,7 @@ buildinfos+=(
 )
 failed_buildinfos=()
 
-for f in "${buildinfos[@]}"; do
+for f in ${buildinfos[*]}; do
     bn_buildinfo="$(basename "$f")"
     echo_info "DEBREBUILD: $bn_buildinfo"
     if do_build "$f"; then
