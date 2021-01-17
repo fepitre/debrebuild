@@ -817,17 +817,21 @@ def main():
             "Cannot verify buildinfo signature without GPG keyring provided")
         return 1
 
-    rebuilder = Rebuilder(
-        buildinfo_file=args.buildinfo,
-        snapshot_url=args.query_url,
-        extra_repository_files=args.extra_repository_file,
-        extra_repository_keys=args.extra_repository_key,
-        gpg_sign_keyid=args.gpg_sign_keyid,
-        gpg_verify=args.gpg_verify,
-        gpg_verify_key=args.gpg_verify_key,
-        proxy=args.proxy
-    )
-    rebuilder.run(builder=args.builder, output=realpath(args.output))
+    try:
+        rebuilder = Rebuilder(
+            buildinfo_file=args.buildinfo,
+            snapshot_url=args.query_url,
+            extra_repository_files=args.extra_repository_file,
+            extra_repository_keys=args.extra_repository_key,
+            gpg_sign_keyid=args.gpg_sign_keyid,
+            gpg_verify=args.gpg_verify,
+            gpg_verify_key=args.gpg_verify_key,
+            proxy=args.proxy
+        )
+        rebuilder.run(builder=args.builder, output=realpath(args.output))
+    except RebuilderException as e:
+        logger.error(str(e))
+        return 1
 
 
 if __name__ == "__main__":
