@@ -260,14 +260,10 @@ class Rebuilder:
             try:
                 resp = self.session.get(buildinfo_file)
                 resp.raise_for_status()
-                buildinfo_filename = buildinfo_file.split('/')[-1]
-                tmpdir = os.environ.get('TMPDIR', '/tmp')
-                buildinfo_file = os.path.join(tmpdir, buildinfo_filename)
-                if os.path.exists(buildinfo_file):
-                    raise RebuilderException(
-                        "Refusing to overwrite existing buildinfo "
-                        "file: {}".format(buildinfo_file))
-                with open(buildinfo_file, 'w') as fd:
+                # We store remote buildinfo in a temporary file
+                handle, buildinfo_file = tempfile.mkstemp(
+                    prefix="buildinfo-", dir=os.environ.get('TMPDIR', '/tmp'))
+                with open(handle, 'w') as fd:
                     fd.write(resp.text)
             except (requests.exceptions.ConnectionError,
                     requests.exceptions.HTTPError) as e:
@@ -295,6 +291,9 @@ class Rebuilder:
                 gpg_env.close()
 
         self.buildinfo = BuildInfo(buildinfo_file)
+        if buildinfo_file.startswith(
+                os.path.join(os.environ.get('TMPDIR', '/tmp'), 'buildinfo-')):
+            os.remove(buildinfo_file)
 
     def get_env(self):
         env = []
@@ -490,7 +489,7 @@ class Rebuilder:
                                      "snapshots or the current repo/mirror")
 
     def prepare_aptcache(self):
-        self.tempdir = tempfile.mkdtemp(prefix="debrebuilder-",
+        self.tempdir = tempfile.mkdtemp(prefix="debrebuild-",
                                         dir=os.environ.get('TMPDIR', '/tmp'))
 
         # Create apt.conf
@@ -698,7 +697,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         finally:
             tmpdir=os.environ.get('TMPDIR', '/tmp')
             if self.tempdir and self.tempdir.startswith(
-                    os.path.join(tmpdir, 'debrebuilder-')):
+                    os.path.join(tmpdir, 'debrebuild-')):
                 if self.tempaptcache:
                     self.tempaptcache.close()
                 shutil.rmtree(self.tempdir)
