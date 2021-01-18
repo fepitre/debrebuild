@@ -645,7 +645,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
     def generate_intoto_metadata(self, output, new_buildinfo):
         new_files = new_buildinfo.checksums.keys()
         cmd = [
-            "/usr/local/bin/in-toto-run", "--step-name=rebuild", "--no-command",
+            "in-toto-run", "--step-name=rebuild", "--no-command",
             "--products"
         ] + list(new_files)
         if self.gpg_sign_keyid:
