@@ -578,10 +578,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
                     ' '.join(self.extra_repository_keys))]
 
-        if self.extra_repository_files:
-            cmd += [
-                '--essential-hook=chroot "$1" sh -c "apt-get --yes install apt-transport-https ca-certificates"'
-            ]
+        # if self.extra_repository_files:
+        #     cmd += [
+        #         '--essential-hook=chroot "$1" sh -c "apt-get --yes install apt-transport-https ca-certificates"'
+        #     ]
 
         cmd += [
             '--essential-hook=chroot "$1" sh -c \"{}\"'.format(" && ".join(
