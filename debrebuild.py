@@ -555,10 +555,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             build = build_arch
         else:
             build = "binary"
-
+        tmpdir = os.environ.get('TMPDIR', '/tmp')
         cmd = [
             'env', '-i',
             'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
+            'TMPDIR={}'.format(tmpdir),
             'mmdebstrap',
             '--arch={}'.format(self.buildinfo.build_arch),
             '--include={}'.format(' '.join(self.get_apt_build_depends())),
