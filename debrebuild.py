@@ -251,9 +251,11 @@ class Rebuilder:
                 "https": self.proxy
             }
 
-        self.tempdir = None
+        self.tempaptdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = []
+
+        self.tmpdir = os.environ.get('TMPDIR', '/tmp')
 
         if buildinfo_file.startswith('http://') or \
                 buildinfo_file.startswith('https://'):
@@ -262,7 +264,7 @@ class Rebuilder:
                 resp.raise_for_status()
                 # We store remote buildinfo in a temporary file
                 handle, buildinfo_file = tempfile.mkstemp(
-                    prefix="buildinfo-", dir=os.environ.get('TMPDIR', '/tmp'))
+                    prefix="buildinfo-", dir=self.tmpdir)
                 with open(handle, 'w') as fd:
                     fd.write(resp.text)
             except (requests.exceptions.ConnectionError,
@@ -292,7 +294,7 @@ class Rebuilder:
 
         self.buildinfo = BuildInfo(buildinfo_file)
         if buildinfo_file.startswith(
-                os.path.join(os.environ.get('TMPDIR', '/tmp'), 'buildinfo-')):
+                os.path.join(self.tmpdir, 'buildinfo-')):
             os.remove(buildinfo_file)
 
     def get_env(self):
@@ -450,7 +452,7 @@ class Rebuilder:
 
     def find_build_dependencies(self):
         notfound_packages = self.buildinfo.build_depends[:]
-        temp_sources_list = self.tempdir + '/etc/apt/sources.list'
+        temp_sources_list = self.tempaptdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
             for timestamp_source, pkgs in self.get_sources_list_from_timestamp():
                 if not notfound_packages:
@@ -489,19 +491,19 @@ class Rebuilder:
                                      "snapshots or the current repo/mirror")
 
     def prepare_aptcache(self):
-        self.tempdir = tempfile.mkdtemp(prefix="debrebuild-",
-                                        dir=os.environ.get('TMPDIR', '/tmp'))
+        self.tempaptdir = tempfile.mkdtemp(
+            prefix="debrebuild-", dir=self.tmpdir)
 
         # Create apt.conf
-        temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempdir)
+        temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempaptdir)
         # Create sources.list
-        temp_sources_list = "{}/etc/apt/sources.list".format(self.tempdir)
+        temp_sources_list = "{}/etc/apt/sources.list".format(self.tempaptdir)
 
         apt_dirs = [
             '/etc/apt', '/etc/apt/trusted.gpg.d'
         ]
         for directory in apt_dirs:
-            os.makedirs("{}/{}".format(self.tempdir, directory))
+            os.makedirs("{}/{}".format(self.tempaptdir, directory))
 
         with open(temp_apt_conf, "w") as fd:
             apt_conf = """
@@ -516,7 +518,7 @@ Acquire::http::Dl-Limit "1000";
 Acquire::https::Dl-Limit "1000";
 Acquire::Retries "5";
 Binary::apt-get::Acquire::AllowInsecureRepositories "false";
-""".format(build_arch=self.buildinfo.build_arch, tempdir=self.tempdir)
+""".format(build_arch=self.buildinfo.build_arch, tempdir=self.tempaptdir)
             if self.proxy:
                 apt_conf += '\nAcquire::http::proxy "{}";\n'.format(self.proxy)
             fd.write(apt_conf)
@@ -532,13 +534,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             keyrings += self.extra_repository_keys
         for keyring_src in keyrings:
             keyring_dst = "{}/etc/apt/trusted.gpg.d/{}".format(
-                self.tempdir, os.path.basename(keyring_src))
+                self.tempaptdir, os.path.basename(keyring_src))
             os.symlink(keyring_src, keyring_dst)
 
         # Init temporary APT cache
         try:
             logger.debug("Initialize APT cache")
-            self.tempaptcache = apt.Cache(rootdir=self.tempdir, memonly=True)
+            self.tempaptcache = apt.Cache(rootdir=self.tempaptdir, memonly=True)
             self.tempaptcache.close()
         except (PermissionError, apt_pkg.Error):
             raise RebuilderException("Failed to initialize APT cache")
@@ -555,11 +557,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             build = build_arch
         else:
             build = "binary"
-        tmpdir = os.environ.get('TMPDIR', '/tmp')
         cmd = [
             'env', '-i',
             'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
-            'TMPDIR={}'.format(tmpdir),
+            'TMPDIR={}'.format(self.tmpdir),
             'mmdebstrap',
             '--arch={}'.format(self.buildinfo.build_arch),
             '--include={}'.format(' '.join(self.get_apt_build_depends())),
@@ -696,12 +697,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
         finally:
-            tmpdir=os.environ.get('TMPDIR', '/tmp')
-            if self.tempdir and self.tempdir.startswith(
-                    os.path.join(tmpdir, 'debrebuild-')):
+            if self.tempaptdir and self.tempaptdir.startswith(
+                    os.path.join(self.tmpdir, 'debrebuild-')):
                 if self.tempaptcache:
                     self.tempaptcache.close()
-                shutil.rmtree(self.tempdir)
+                shutil.rmtree(self.tempaptdir)
 
         # Stage 2: Run the actual rebuild of provided buildinfo file
         if builder == "none":
