@@ -374,6 +374,7 @@ class Rebuilder:
             srcpkgname, srcpkgver)
         json_url = self.snapshot_url + json_url
         resp = self.get_response(json_url)
+        logger.debug("Source URL: {}".format(json_url))
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
@@ -405,6 +406,7 @@ class Rebuilder:
             pkgname, pkgver)
         json_url = self.snapshot_url + json_url
         resp = self.get_response(json_url)
+        logger.debug("Binary URL: {}".format(json_url))
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
