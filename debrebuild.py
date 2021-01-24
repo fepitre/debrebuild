@@ -596,7 +596,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         ]
 
         cmd += [
-            '--customize-hook=chroot "$1" sh -c \"{}\"'.format(" && ".join(
+            '--customize-hook=chroot "$1" env --unset=TMPDIR sh -c \"{}\"'.format(" && ".join(
                 [
                     'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.version),
                     'mkdir -p {}'.format(os.path.dirname(self.buildinfo.build_path)),
