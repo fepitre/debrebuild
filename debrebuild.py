@@ -619,9 +619,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if subprocess.run(cmd).returncode != 0:
             raise RebuilderException("mmdebstrap failed")
 
-    def verify_checksums(self, new_buildinfo):
+    def verify_checksums(self, new_buildinfo, allow_failure=False):
         files = [f for f in self.buildinfo.checksums.keys() if not f.endswith('.dsc')]
         new_files = new_buildinfo.checksums.keys()
+
         if len(files) != len(new_files):
             logger.debug("old buildinfo: {}".format(' '.join(files)))
             logger.debug("new buildinfo: {}".format(' '.join(new_files)))
@@ -644,7 +645,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                     raise RebuilderException(
                         "Value of {} differs for {}".format(prop, f))
             logger.info("{}: OK".format(f))
-        logger.info("Checksums: OK")
 
     def generate_intoto_metadata(self, output, new_buildinfo):
         new_files = new_buildinfo.checksums.keys()
@@ -669,7 +669,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             raise RebuilderException("Cannot determinate builder host architecture")
         return builder_architecture
 
-    def run(self, builder, output):
+    def run(self, builder, output, no_checksums_verification=False):
         # Predict new buildinfo name created by builder
         # Based on dpkg/scripts/dpkg-genbuildinfo.pl
         if self.buildinfo.architecture:
@@ -713,7 +713,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
-        self.verify_checksums(new_buildinfo)
+        try:
+            self.verify_checksums(new_buildinfo, no_checksums_verification)
+            logger.info("Checksums: OK")
+        except RebuilderException as e:
+            logger.error("Checksums: FAIL: {}.".format(str(e)))
         self.generate_intoto_metadata(output, new_buildinfo)
 
 
@@ -775,6 +779,12 @@ def get_args():
         help="Proxy address to use."
     )
     parser.add_argument(
+        "--no-checksums-verification",
+        help="Don't fail on checksums verification between original and"
+             " rebuild packages",
+        action="store_true",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Display logger info messages."
@@ -833,7 +843,8 @@ def main():
             gpg_verify_key=args.gpg_verify_key,
             proxy=args.proxy
         )
-        rebuilder.run(builder=args.builder, output=realpath(args.output))
+        rebuilder.run(builder=args.builder, output=realpath(args.output),
+                      no_checksums_verification=args.no_checksums_verification)
     except RebuilderException as e:
         logger.error(str(e))
         return 1
