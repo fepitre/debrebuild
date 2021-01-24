@@ -30,12 +30,17 @@ import argparse
 import logging
 import apt
 import apt_pkg
-from gemato.openpgp import IsolatedGPGEnvironment
-from gemato.exceptions import OpenPGPVerificationFailure, \
-    OpenPGPKeyImportError, OpenPGPUnknownSigFailure, OpenPGPUntrustedSigFailure
 
 from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
+
+# We currently import Gemato OpenPGP verification lib locally
+# until we find a better way to either have it packaged or
+# do our own for debrebuild
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
+from gemato.openpgp import IsolatedGPGEnvironment
+from gemato.exceptions import OpenPGPVerificationFailure, \
+    OpenPGPKeyImportError, OpenPGPUnknownSigFailure, OpenPGPUntrustedSigFailure
 
 logger = logging.getLogger(__name__)
 console_handler = logging.StreamHandler(sys.stderr)
