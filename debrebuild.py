@@ -624,7 +624,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if subprocess.run(cmd).returncode != 0:
             raise RebuilderException("mmdebstrap failed")
 
-    def verify_checksums(self, new_buildinfo, allow_failure=False):
+    def verify_checksums(self, new_buildinfo):
         files = [f for f in self.buildinfo.checksums.keys() if not f.endswith('.dsc')]
         new_files = new_buildinfo.checksums.keys()
 
@@ -719,10 +719,14 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
         try:
-            self.verify_checksums(new_buildinfo, no_checksums_verification)
+            self.verify_checksums(new_buildinfo)
             logger.info("Checksums: OK")
         except RebuilderException as e:
-            logger.error("Checksums: FAIL: {}.".format(str(e)))
+            msg = "Checksums: FAIL: {}.".format(str(e))
+            if no_checksums_verification:
+                logger.error(msg)
+            else:
+                raise RebuilderException(msg)
         self.generate_intoto_metadata(output, new_buildinfo)
 
 
