@@ -3,19 +3,18 @@ debrebuilder
 
 ```
 usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--extra-repository-file EXTRA_REPOSITORY_FILE]
-                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify]
-                     [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY] [--verbose] [--debug]
+                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify] [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY]
+                     [--no-checksums-verification] [--verbose] [--debug]
                      buildinfo
 
-Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the
-associated source and build information.
+Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the associated source and build information.
 
 positional arguments:
   buildinfo             Input buildinfo file. Local or remote file.
 
 optional arguments:
   -h, --help            show this help message and exit
-  --output OUTPUT       Directory for the build artifacts (default: ./)
+  --output OUTPUT       Directory for the build artifacts
   --builder BUILDER     Which building software should be used. (default: none)
   --query-url QUERY_URL
                         API url for querying package and binary information (default: http://snapshot.debian.org)
@@ -29,6 +28,8 @@ optional arguments:
   --gpg-verify-key GPG_VERIFY_KEY
                         GPG key to use for buildinfo GPG check.
   --proxy PROXY         Proxy address to use.
+  --no-checksums-verification
+                        Don't fail on checksums verification between original and rebuild packages
   --verbose             Display logger info messages.
   --debug               Display logger debug messages.
 ```

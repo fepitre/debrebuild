@@ -769,8 +769,7 @@ def get_args():
     )
     parser.add_argument(
         "--output",
-        help="Directory for the build artifacts (default: ./)",
-        default=os.path.join(os.getcwd(), './')
+        help="Directory for the build artifacts",
     )
     parser.add_argument(
         "--builder",
