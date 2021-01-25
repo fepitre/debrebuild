@@ -559,6 +559,17 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 pkg.to_apt_install_format(self.buildinfo.build_arch))
         return apt_build_depends
 
+    def get_chroot_basemirror(self):
+        # basemirror = 'deb {}/{}/ {} main'.format(
+        #     self.base_mirror, self.buildinfo.get_build_date(), self.buildinfo.get_debian_suite())
+
+        # We select the oldest required snapshot to ensure that essential packages
+        # like "apt" will not be removed due to downgrade process
+        basemirror = self.required_timestamp_sources[-1].replace(
+            'unstable', self.buildinfo.get_debian_suite())
+
+        return basemirror
+
     def mmdebstrap(self, output, build_arch):
         if build_arch in ("source", "all", "any"):
             build = build_arch
@@ -618,7 +629,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--customize-hook=sync-out {} {}'.format(os.path.dirname(self.buildinfo.build_path), output),
             self.buildinfo.get_debian_suite(),
             '/dev/null',
-            'deb {}/{}/ {} main'.format(self.base_mirror, self.buildinfo.get_build_date(), self.buildinfo.get_debian_suite())
+            self.get_chroot_basemirror()
         ]
         logger.debug(' '.join(cmd))
         if subprocess.run(cmd).returncode != 0:
