@@ -38,7 +38,7 @@ do_build() {
     version="$(echo "$parsed_name" | cut -d'_' -f2)"
     output="/tmp/sources/$package/$version"
     DEBREBUILD_OPTS="$COMMON_OPTS"
-    if [[ "$package" =~ ^qubes- ]]; then
+    if [[ "$package" =~ ^qubes- ]] || [[ "$buildinfo" =~ ^.*qubes-os.org ]]; then
         DEBREBUILD_OPTS="$DEBREBUILD_OPTS $QUBES_OPTS"
     fi
     if [[ "$buildinfo" =~ .unreproducible$ ]]; then
