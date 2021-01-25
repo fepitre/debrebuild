@@ -570,6 +570,14 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         return basemirror
 
+    def has_build_essential_dependency(self):
+        has_build_essential = False
+        for pkg in self.buildinfo.get_build_depends():
+            if pkg.name == "build-essential":
+                has_build_essential = True
+                break
+        return has_build_essential
+
     def mmdebstrap(self, output, build_arch):
         if build_arch in ("source", "all", "any"):
             build = build_arch
@@ -593,6 +601,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             cmd += [
                 '--aptopt=Acquire::http::proxy "{}";'.format(self.proxy)
             ]
+
+        # Workaround for missing build-essential in buildinfo dependencies
+        if not self.has_build_essential_dependency():
+            cmd += [
+                '--essential-hook=chroot "$1" sh -c "apt-get --yes install build-essential"'
+            ]
+
         if self.extra_repository_keys:
             cmd += [
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
