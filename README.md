@@ -1,4 +1,4 @@
-debrebuilder
+debrebuild
 ===
 
 ```
