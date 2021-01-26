@@ -70,26 +70,6 @@ class RebuilderException(Exception):
     pass
 
 
-def parsePkgAptHelper(pkg):
-    name = None
-    version = None
-    architecture = None
-    for item in pkg:
-        parsed = item.split(':', 1)
-        if len(parsed) == 2:
-            field = parsed[0].strip()
-            value = parsed[1].strip()
-            if field == 'Package':
-                name = value
-            if field == 'Version':
-                version = value
-            if field == 'Architecture':
-                architecture = value
-
-    if name and version and architecture:
-        return Package(name, version, architecture)
-
-
 def parsePkgBuildDepend(pkg):
     # g++-mingw-w64-x86-64 (= 8.3.0-26+21.5+b1)
     parsed = re.match(r'^(.*) \(= (.*)\),*', pkg)
