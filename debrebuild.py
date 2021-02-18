@@ -33,14 +33,7 @@ import apt_pkg
 
 from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
-
-# We currently import Gemato OpenPGP verification lib locally
-# until we find a better way to either have it packaged or
-# do our own for debrebuild
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
-from gemato.openpgp import IsolatedGPGEnvironment
-from gemato.exceptions import OpenPGPVerificationFailure, \
-    OpenPGPKeyImportError, OpenPGPUnknownSigFailure, OpenPGPUntrustedSigFailure
+from libs.openpgp import OpenPGPEnvironment, OpenPGPException
 
 logger = logging.getLogger(__name__)
 console_handler = logging.StreamHandler(sys.stderr)
@@ -259,21 +252,15 @@ class Rebuilder:
             buildinfo_file = realpath(buildinfo_file)
 
         if gpg_verify and gpg_verify_key:
-            gpg_env = IsolatedGPGEnvironment()
+            gpg_env = OpenPGPEnvironment()
             try:
-                for key in gpg_verify_key:
-                    with open(key, 'rb') as fd:
-                        gpg_env.import_key(fd)
-                with open(buildinfo_file, 'r') as fd:
-                    data = gpg_env.verify_file(fd)
-                    logger.info(
-                        "GPG ({}): OK".format(data.primary_key_fingerprint))
-            except OpenPGPKeyImportError:
-                raise RebuilderException("Cannot import provided GPG keyring")
-            except (OpenPGPVerificationFailure, OpenPGPUnknownSigFailure,
-                    OpenPGPUntrustedSigFailure):
+                gpg_env.import_key(gpg_verify_key)
+                data = gpg_env.verify_file(buildinfo_file)
+                logger.info(
+                    "GPG ({}): OK".format(data.primary_key_fingerprint))
+            except OpenPGPException as e:
                 raise RebuilderException(
-                    "Failed to verify buildinfo GPG signature")
+                    "Failed to verify buildinfo: {}".format(str(e)))
             finally:
                 gpg_env.close()
 
@@ -785,8 +772,7 @@ def get_args():
     )
     parser.add_argument(
         "--gpg-verify-key",
-        help="GPG key to use for buildinfo GPG check.",
-        action="append"
+        help="GPG key to use for buildinfo GPG check."
     )
     parser.add_argument(
         "--proxy",
@@ -830,8 +816,7 @@ def main():
         return 1
 
     if args.gpg_verify_key:
-        args.gpg_verify_key = \
-            [realpath(key_file) for key_file in args.gpg_verify_key]
+        args.gpg_verify_key = realpath(args.gpg_verify_key)
 
     if args.extra_repository_file:
         args.extra_repository_file = \

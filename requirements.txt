@@ -1,3 +1,2 @@
 requests
-gemato
 python-apt
