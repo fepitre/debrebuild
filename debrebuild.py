@@ -20,7 +20,6 @@
 
 import os
 import sys
-import re
 import requests
 import tempfile
 import json
@@ -30,25 +29,15 @@ import argparse
 import logging
 import apt
 import apt_pkg
+import debian.deb822
+import rstr
 
-from debian.deb822 import Deb822
 from dateutil.parser import parse as parsedate
 from libs.openpgp import OpenPGPEnvironment, OpenPGPException
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('debrebuild')
 console_handler = logging.StreamHandler(sys.stderr)
 logger.addHandler(console_handler)
-
-
-DEBIAN_VERSION = {
-    "6": "squeeze",
-    "7": "wheezy",
-    "8": "jessie",
-    "9": "stretch",
-    "10": "buster",
-    "11": "bullseye",
-    "12": "bookworm"
-}
 
 
 class PackageException(Exception):
@@ -61,15 +50,6 @@ class BuildInfoException(Exception):
 
 class RebuilderException(Exception):
     pass
-
-
-def parsePkgBuildDepend(pkg):
-    # g++-mingw-w64-x86-64 (= 8.3.0-26+21.5+b1)
-    parsed = re.match(r'^(.*) \(= (.*)\),*', pkg)
-    if parsed:
-        name = parsed.group(1).strip()
-        version = parsed.group(2).strip()
-        return Package(name, version)
 
 
 class Package:
@@ -102,110 +82,60 @@ class Package:
 
 class BuildInfo:
     def __init__(self, buildinfo_file):
-        self.orig_file = buildinfo_file
 
-        self.source = None
-        self.architecture = None
-        self.binary = None
-        self.version = None
-        self.build_path = None
-        self.build_arch = None
-        self.build_date = None
-        self.host_arch = None
-        self.checksums = {}
-        self.build_depends = []
-        self.env = {}
-
-        self.required_timestamps = []
-        self.debian_suite = None
-
-        if not os.path.exists(self.orig_file):
+        if not os.path.exists(buildinfo_file):
             raise BuildInfoException(
-                "Cannot find buildinfo file: {}".format(self.orig_file))
+                "Cannot find buildinfo file: {}".format(buildinfo_file))
 
-        with open(self.orig_file) as fd:
-            for paragraph in Deb822.iter_paragraphs(fd.read()):
-                for item in paragraph.items():
-                    if item[0] == 'Source':
-                        self.source = item[1]
-                    if item[0] == 'Architecture':
-                        self.architecture = item[1].split()
-                    if item[0] == 'Binary':
-                        self.binary = item[1].split()
-                    if item[0] == 'Version':
-                        self.version = item[1]
-                    if item[0] == 'Build-Path':
-                        self.build_path = item[1]
-                    if item[0] == 'Build-Architecture':
-                        self.build_arch = item[1]
-                    if item[0] == 'Build-Date':
-                        self.build_date = item[1]
-                    if item[0] == 'Host-Architecture':
-                        self.host_arch = item[1]
-                    if item[0].startswith('Checksums-'):
-                        alg = item[0].replace('Checksums-', '').lower()
-                        for line in item[1].lstrip('\n').split('\n'):
-                            parsed_line = line.split()
-                            if not self.checksums.get(parsed_line[2], {}):
-                                self.checksums[parsed_line[2]] = {}
-                            self.checksums[parsed_line[2]].update({
-                                "size": parsed_line[1],
-                                alg: parsed_line[0],
-                            })
-                    if item[0] == 'Installed-Build-Depends':
-                        for pkg in item[1].lstrip('\n').split('\n'):
-                            parsed_pkg = parsePkgBuildDepend(pkg)
-                            if not parsed_pkg:
-                                raise BuildInfoException(
-                                    "Cannot parse package: %s" % pkg)
-                            self.build_depends.append(parsed_pkg)
-                    if item[0] == 'Environment':
-                        for line in item[1].lstrip('\n').split('\n'):
-                            parsed_line = re.match(r'^[^=](.*)="(.*)"', line)
-                            if parsed_line:
-                                self.env[parsed_line.group(1).strip()] = \
-                                    parsed_line.group(2).strip()
+        with open(buildinfo_file) as fd:
+            self.parsed_info = debian.deb822.BuildInfo(fd)
 
-        self.build_source = len(
-            [arch for arch in self.architecture if arch == "source"]) == 1
-        self.build_archall = len(
-            [arch for arch in self.architecture if arch == "all"]) == 1
-        self.architecture = [arch for arch in self.architecture if
-                             arch != "source" and arch != "all"]
-
+        self.source = self.parsed_info.get_source()
+        self.architecture = [arch for arch in self.parsed_info.get_architecture()
+                             if arch not in ("source", "all")]
         if len(self.architecture) > 1:
             raise BuildInfoException(
                 "More than one architecture in Architecture field")
-
-        self.build_archany = len(self.architecture) == 1
+        self.binary = self.parsed_info.get_binary()
+        self.version = self.parsed_info['version']
+        self.build_path = self.parsed_info.get('build-path', None)
+        self.build_arch = self.parsed_info.get('build-architecture', None)
         if not self.build_arch:
             raise BuildInfoException("Need Build-Architecture field")
-        if not self.host_arch:
-            self.host_arch = self.build_arch
-        if not self.build_path:
-            self.build_path = "/build/{}-{}".format(
-                self.source, next(tempfile._get_candidate_names()))
+        self.build_date = self.parsed_info.get_build_date().strftime("%Y%m%dT%H%M%SZ")
+        self.host_arch = self.parsed_info.get('host-architecture', self.build_arch)
+        self.env = self.parsed_info.get_environment()
+        self.build_source = self.parsed_info.is_build_source()
+        self.build_archall = self.parsed_info.is_build_arch_all()
+        self.build_archany = self.parsed_info.is_build_arch_any()
+
+        self.checksums = {}
+        for alg in ('md5', 'sha1', 'sha256', 'sha512'):
+            if self.parsed_info.get('checksums-{}'.format(alg), None):
+                self.checksums[alg] = self.parsed_info['checksums-{}'.format(alg)]
+
+        self.build_depends = []
+        self.required_timestamps = []
 
     def get_debian_suite(self):
-        if not self.debian_suite:
-            for pkg in self.get_build_depends():
-                if str(pkg.name) == "base-files":
-                    try:
-                        self.debian_suite = DEBIAN_VERSION[pkg.version]
-                    except KeyError:
-                        raise BuildInfoException(
-                            "Cannot determine Debian version")
-        return self.debian_suite
+        return self.parsed_info.get_debian_suite()
+
+    def get_build_path(self):
+        if not self.build_path:
+            self.build_path = "/build/{}-{}".format(
+                self.source, rstr.letters(10))
+        return self.build_path
 
     def get_build_depends(self):
+        # Storing self.build_depends is needed as we refresh information
+        # from apt cache
+        if not self.build_depends:
+            installed = self.parsed_info.relations['installed-build-depends']
+            for dep in installed:
+                name = dep[0]['name']
+                _, version = dep[0]['version']
+                self.build_depends.append(Package(name, version))
         return self.build_depends
-
-    def get_build_date(self):
-        try:
-            return parsedate(self.build_date).strftime(
-                "%Y%m%dT%H%M%SZ")
-        except ValueError as e:
-            raise RebuilderException("Cannot parse 'Build-Date': %s" % e)
 
 
 class Rebuilder:
@@ -281,7 +211,7 @@ class Rebuilder:
 
     def get_sources_list(self):
         sources_list = []
-        url = "{}/{}".format(self.base_mirror, self.buildinfo.get_build_date())
+        url = "{}/{}".format(self.base_mirror, self.buildinfo.build_date)
         base_dist = self.buildinfo.get_debian_suite()
         release_url = "{}/dists/{}/Release".format(url, base_dist)
         resp = self.get_response(release_url)
@@ -425,7 +355,7 @@ class Rebuilder:
         return package.first_seen
 
     def find_build_dependencies(self):
-        notfound_packages = self.buildinfo.build_depends[:]
+        notfound_packages = self.buildinfo.get_build_depends()[:]
         temp_sources_list = self.tempaptdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
             for timestamp_source, pkgs in self.get_sources_list_from_timestamp():
@@ -451,10 +381,6 @@ class Rebuilder:
                         notfound_pkg.name, notfound_pkg.architecture))
                     if pkg and pkg.versions.get(notfound_pkg.version):
                         notfound_packages.remove(notfound_pkg)
-                    # else:
-                    #     logger.debug("{} {} {}".format(
-                    #         notfound_pkg.name, notfound_pkg.version,
-                    #         notfound_pkg.architecture))
 
                 self.tempaptcache.close()
 
@@ -580,10 +506,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
                     ' '.join(self.extra_repository_keys))]
 
-        # if self.extra_repository_files:
-        #     cmd += [
-        #         '--essential-hook=chroot "$1" sh -c "apt-get --yes install apt-transport-https ca-certificates"'
-        #     ]
+        if self.extra_repository_files:
+            cmd += [
+                '--essential-hook=chroot "$1" sh -c "apt-get --yes install apt-transport-https ca-certificates"'
+            ]
 
         cmd += [
             '--essential-hook=chroot "$1" sh -c \"{}\"'.format(" && ".join(
@@ -618,31 +544,46 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             raise RebuilderException("mmdebstrap failed")
 
     def verify_checksums(self, new_buildinfo):
-        files = [f for f in self.buildinfo.checksums.keys() if not f.endswith('.dsc')]
-        new_files = new_buildinfo.checksums.keys()
+        status = True
+        for alg in self.buildinfo.checksums.keys():
+            checksums = self.buildinfo.checksums[alg]
+            new_checksums = new_buildinfo.checksums[alg]
+            files = [f for f in checksums if not f['name'].endswith('.dsc')]
+            new_files = [f for f in new_checksums if not f['name'].endswith('.dsc')]
 
-        if len(files) != len(new_files):
-            logger.debug("old buildinfo: {}".format(' '.join(files)))
-            logger.debug("new buildinfo: {}".format(' '.join(new_files)))
-            raise RebuilderException(
-                "New buildinfo contains a different number of files.")
+            if len(files) != len(new_files):
+                logger.debug("old buildinfo: {}".format(' '.join(files)))
+                logger.debug("new buildinfo: {}".format(' '.join(new_files)))
+                raise RebuilderException(
+                    f"New buildinfo contains a different number of files in {alg} checksums.")
 
-        for f in files:
-            for prop in self.buildinfo.checksums[f].keys():
-                if prop == "size":
-                    f_size = self.buildinfo.checksums[f]["size"]
-                    if f_size != new_buildinfo.checksums[f]["size"]:
+            for f in files:
+                new_file = None
+                for nf in new_files:
+                    if nf['name'] == f['name']:
+                        new_file = nf
+                        break
+                if not new_file:
+                    raise RebuilderException(f"Cannot find {f['name']} in new files")
+                cur_status = True
+                for prop in f.keys():
+                    if prop == "size":
+                        if f["size"] != new_file["size"]:
+                            logger.error("Size differs for {}".format(f))
+                            cur_status = False
+                    if prop not in new_file.keys():
                         raise RebuilderException(
-                            "Size differs for {}".format(f))
-                    # logger.debug("{} size: {}".format(f, f_size))
-                if prop not in new_buildinfo.checksums[f].keys():
-                    raise RebuilderException(
-                        "{} is not used in both buildinfo files".format(prop))
-                if self.buildinfo.checksums[f][prop] != \
-                        new_buildinfo.checksums[f][prop]:
-                    raise RebuilderException(
-                        "Value of {} differs for {}".format(prop, f))
-            logger.info("{}: OK".format(f))
+                            "{} is not used in both buildinfo files".format(prop))
+                    if f[prop] != new_file[prop]:
+                        logger.error("Value of {} differs for {}".format(prop, f))
+                        cur_status = False
+                if cur_status:
+                    logger.info("{}: OK".format(f))
+                else:
+                    status = False
+
+        if not status:
+            raise RebuilderException("Failed to verify checksums")
 
     def generate_intoto_metadata(self, output, new_buildinfo):
         new_files = new_buildinfo.checksums.keys()
