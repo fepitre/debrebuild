@@ -72,4 +72,5 @@ done
 
 if [ -n "${failed_buildinfos[*]}" ]; then
     echo_err "The following buildinfo failed to rebuild: ${failed_buildinfos[*]}"
+    exit 1
 fi
