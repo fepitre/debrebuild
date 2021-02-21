@@ -5,6 +5,9 @@ tests:
   variables:
     DEBUG: "1"
   before_script:
-    - apt update -y && apt install -y git mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil
+    - apt update -y && apt install -y git mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-setuptools python3-rstr
+    # Use python-debian code in python-debian#40
+    - git clone -b extend-buildinfo https://salsa.debian.org/fepitre/python-debian
+    - cd python-debian && python3 setup.py build install && cd ../
   script:
     - tests/run.sh
