@@ -15,7 +15,7 @@ fi
 
 localdir="$(readlink -f "$(dirname "$0")")"
 
-COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap"
+COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap --gpg-sign-keyid 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
 QUBES_OPTS="$QUBES_OPTS --query-url https://ancient-tundra-75419.herokuapp.com"
 QUBES_OPTS="$QUBES_OPTS --extra-repository-file $localdir/repos/qubes-r4.list --extra-repository-key $localdir/keys/qubes-debian-r4.asc"
 QUBES_OPTS="$QUBES_OPTS --gpg-verify --gpg-verify-key $localdir/keys/qubes-debian-r4.asc"
@@ -58,6 +58,8 @@ buildinfos+=(
     "https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo"
 )
 failed_buildinfos=()
+
+export GNUPGHOME="$localdir/gnupg"
 
 for f in ${buildinfos[*]}; do
     bn_buildinfo="$(basename "$f")"
