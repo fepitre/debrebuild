@@ -54,7 +54,6 @@ do_build() {
 
 buildinfos=("$localdir"/data/*.buildinfo*)
 buildinfos+=(
-    "https://deb.qubes-os.org/r4.1/vm/pool/main/libc/libcomps/libcomps_0.1.15-2+deb11u1_amd64.buildinfo"
     "https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo"
 )
 failed_buildinfos=()
