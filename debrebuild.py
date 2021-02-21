@@ -34,6 +34,7 @@ import rstr
 
 from dateutil.parser import parse as parsedate
 from libs.openpgp import OpenPGPEnvironment, OpenPGPException
+from shlex import quote
 
 logger = logging.getLogger('debrebuild')
 console_handler = logging.StreamHandler(sys.stderr)
@@ -90,7 +91,9 @@ class BuildInfo:
         with open(buildinfo_file) as fd:
             self.parsed_info = debian.deb822.BuildInfo(fd)
 
-        self.source = self.parsed_info.get_source()
+        # in case of binnmu we have e.g.
+        #   Source: 0ad (0.0.23-1)
+        self.source, self.source_version = self.parsed_info.get_source()
         self.architecture = [arch for arch in self.parsed_info.get_architecture()
                              if arch not in ("source", "all")]
         if len(self.architecture) > 1:
@@ -98,6 +101,8 @@ class BuildInfo:
                 "More than one architecture in Architecture field")
         self.binary = self.parsed_info.get_binary()
         self.version = self.parsed_info['version']
+        if not self.source_version:
+            self.source_version = self.version
         self.build_path = self.parsed_info.get('build-path', None)
         self.build_arch = self.parsed_info.get('build-architecture', None)
         if not self.build_arch:
@@ -113,6 +118,15 @@ class BuildInfo:
         for alg in ('md5', 'sha1', 'sha256', 'sha512'):
             if self.parsed_info.get('checksums-{}'.format(alg), None):
                 self.checksums[alg] = self.parsed_info['checksums-{}'.format(alg)]
+
+        self.logentry = self.parsed_info.get_changelog()
+        if self.logentry:
+            # Due to storing the binnmu changelog entry in deb822 buildinfo,
+            # the first character is an unwanted newline
+            self.logentry = str(self.logentry).lstrip('\n')
+            # while the linebreak at the beginning is wrong, there are two
+            # missing at the end
+            self.logentry += '\n\n'
 
         self.build_depends = []
         self.required_timestamps = []
@@ -269,7 +283,7 @@ class Rebuilder:
 
     def get_src_date(self):
         srcpkgname = self.buildinfo.source
-        srcpkgver = self.buildinfo.version
+        srcpkgver = self.buildinfo.source_version
         logger.debug("Get source package info: {}={}".format(
             srcpkgname, srcpkgver))
         json_url = "/mr/package/{}/{}/srcfiles?fileinfo=1".format(
@@ -521,20 +535,28 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             ))
         ]
 
+        binnmucmds = []
+        if self.buildinfo.logentry:
+            binnmucmds += [
+                "{{ printf '%s' {}; cat debian/changelog; }} > debian/changelog.debrebuild".format(quote(self.buildinfo.logentry)),
+                "mv debian/changelog.debrebuild debian/changelog"
+            ]
+
         cmd += [
             '--customize-hook=chroot "$1" env --unset=TMPDIR sh -c \"{}\"'.format(" && ".join(
                 [
-                    'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.version),
-                    'mkdir -p {}'.format(os.path.dirname(self.buildinfo.build_path)),
-                    'dpkg-source --no-check -x /*.dsc {}'.format(self.buildinfo.build_path),
-                    'cd {}'.format(self.buildinfo.build_path),
-                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, build)
+                    'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.source_version),
+                    'mkdir -p {}'.format(os.path.dirname(quote(self.buildinfo.build_path))),
+                    'dpkg-source --no-check -x /*.dsc {}'.format(quote(self.buildinfo.build_path)),
+                    'cd {}'.format(quote(self.buildinfo.build_path)),
+                ] + binnmucmds + [
+                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(quote(' '.join(self.get_env())), self.buildinfo.host_arch, build)
                 ]
             ))
         ]
 
         cmd += [
-            '--customize-hook=sync-out {} {}'.format(os.path.dirname(self.buildinfo.build_path), output),
+            '--customize-hook=sync-out {} {}'.format(os.path.dirname(quote(self.buildinfo.build_path)), output),
             self.buildinfo.get_debian_suite(),
             '/dev/null',
             self.get_chroot_basemirror()

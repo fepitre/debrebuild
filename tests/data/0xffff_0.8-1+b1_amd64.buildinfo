@@ -1,0 +1,192 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Format: 1.0
+Source: 0xffff (0.8-1)
+Binary: 0xffff
+Architecture: amd64
+Version: 0.8-1+b1
+Binary-Only-Changes:
+ 0xffff (0.8-1+b1) sid; urgency=low, binary-only=yes
+ .
+   * Binary-only non-maintainer upload for amd64; no source changes.
+   * rebuild on buildd
+ .
+  -- amd64 / i386 Build Daemon (x86-csail-01) <buildd_amd64-x86-csail-01@buildd.debian.org>  Thu, 08 Aug 2019 04:36:59 +0000
+Checksums-Md5:
+ 66c55db47c05963b6fcd8ccd0df7a768 155516 0xffff-dbgsym_0.8-1+b1_amd64.deb
+ 4df4df9b0eedfed0c3fa1ed71d484246 58844 0xffff_0.8-1+b1_amd64.deb
+Checksums-Sha1:
+ 2a52a985bc53393a44769391d09d22799dcbc691 155516 0xffff-dbgsym_0.8-1+b1_amd64.deb
+ 036e37ebb6c0124fc2d71109c11f5298e5ece64c 58844 0xffff_0.8-1+b1_amd64.deb
+Checksums-Sha256:
+ 6d100b27f5e510bbee14311accf2cb9d20a09dfc8f754b9324a58222d14a2ecf 155516 0xffff-dbgsym_0.8-1+b1_amd64.deb
+ 7076ffc1bd49e072091988677430542e05519e7ad55bd96d188ecef41a1d7d27 58844 0xffff_0.8-1+b1_amd64.deb
+Build-Origin: Debian
+Build-Architecture: amd64
+Build-Date: Thu, 08 Aug 2019 04:37:07 +0000
+Build-Path: /build/0xffff-6j3EkP/0xffff-0.8
+Build-Tainted-By:
+ usr-local-has-programs
+Installed-Build-Depends:
+ autoconf (= 2.69-11),
+ automake (= 1:1.16.1-4),
+ autopoint (= 0.19.8.1-9),
+ autotools-dev (= 20180224.1),
+ base-files (= 11),
+ base-passwd (= 3.5.46),
+ bash (= 5.0-4),
+ binutils (= 2.32.51.20190727-1),
+ binutils-common (= 2.32.51.20190727-1),
+ binutils-x86-64-linux-gnu (= 2.32.51.20190727-1),
+ bsdmainutils (= 11.1.2+b1),
+ bsdutils (= 1:2.34-0.1),
+ build-essential (= 12.6),
+ bzip2 (= 1.0.6-9.2),
+ coreutils (= 8.30-3+b1),
+ cpp (= 4:8.3.0-1),
+ cpp-8 (= 8.3.0-19),
+ dash (= 0.5.10.2-6),
+ debconf (= 1.5.73),
+ debhelper (= 12.3),
+ debianutils (= 4.8.6.3),
+ dh-autoreconf (= 19),
+ dh-strip-nondeterminism (= 1.4.0-1),
+ diffutils (= 1:3.7-3),
+ dpkg (= 1.19.7),
+ dpkg-dev (= 1.19.7),
+ dwz (= 0.12.20190723-1),
+ fdisk (= 2.34-0.1),
+ file (= 1:5.37-5),
+ findutils (= 4.6.0+git+20190510-2),
+ g++ (= 4:8.3.0-1),
+ g++-8 (= 8.3.0-19),
+ gcc (= 4:8.3.0-1),
+ gcc-8 (= 8.3.0-19),
+ gcc-8-base (= 8.3.0-19),
+ gcc-9-base (= 9.1.0-10),
+ gettext (= 0.19.8.1-9),
+ gettext-base (= 0.19.8.1-9),
+ grep (= 3.3-1),
+ groff-base (= 1.22.4-3),
+ gzip (= 1.9-3),
+ hostname (= 3.21),
+ init-system-helpers (= 1.57),
+ intltool-debian (= 0.35.0+20060710.5),
+ libacl1 (= 2.2.53-4),
+ libarchive-zip-perl (= 1.64-1),
+ libasan5 (= 9.1.0-10),
+ libatomic1 (= 9.1.0-10),
+ libattr1 (= 1:2.4.48-4),
+ libaudit-common (= 1:2.8.5-2),
+ libaudit1 (= 1:2.8.5-2),
+ libbinutils (= 2.32.51.20190727-1),
+ libblkid1 (= 2.34-0.1),
+ libbsd0 (= 0.9.1-2),
+ libbz2-1.0 (= 1.0.6-9.2),
+ libc-bin (= 2.28-10),
+ libc-dev-bin (= 2.28-10),
+ libc6 (= 2.28-10),
+ libc6-dev (= 2.28-10),
+ libcap-ng0 (= 0.7.9-2),
+ libcc1-0 (= 9.1.0-10),
+ libcroco3 (= 0.6.12-3),
+ libdb5.3 (= 5.3.28+dfsg1-0.6),
+ libdebconfclient0 (= 0.249),
+ libdpkg-perl (= 1.19.7),
+ libelf1 (= 0.176-1.1),
+ libfdisk1 (= 2.34-0.1),
+ libffi6 (= 3.2.1-9),
+ libfile-stripnondeterminism-perl (= 1.4.0-1),
+ libgcc-8-dev (= 8.3.0-19),
+ libgcc1 (= 1:9.1.0-10),
+ libgcrypt20 (= 1.8.4-5),
+ libgdbm-compat4 (= 1.18.1-4+b1),
+ libgdbm6 (= 1.18.1-4+b1),
+ libglib2.0-0 (= 2.60.6-1),
+ libgmp10 (= 2:6.1.2+dfsg-4),
+ libgomp1 (= 9.1.0-10),
+ libgpg-error0 (= 1.36-7),
+ libicu63 (= 63.2-2),
+ libisl19 (= 0.20-2),
+ libitm1 (= 9.1.0-10),
+ liblsan0 (= 9.1.0-10),
+ liblz4-1 (= 1.8.3-1),
+ liblzma5 (= 5.2.4-1),
+ libmagic-mgc (= 1:5.37-5),
+ libmagic1 (= 1:5.37-5),
+ libmount1 (= 2.34-0.1),
+ libmpc3 (= 1.1.0-1),
+ libmpfr6 (= 4.0.2-1),
+ libmpx2 (= 8.3.0-19),
+ libncurses6 (= 6.1+20190713-2),
+ libncursesw6 (= 6.1+20190713-2),
+ libpam-modules (= 1.3.1-5),
+ libpam-modules-bin (= 1.3.1-5),
+ libpam-runtime (= 1.3.1-5),
+ libpam0g (= 1.3.1-5),
+ libpcre2-8-0 (= 10.32-5+b1),
+ libpcre3 (= 2:8.39-12+b1),
+ libperl5.28 (= 5.28.1-6),
+ libpipeline1 (= 1.5.1-2),
+ libquadmath0 (= 9.1.0-10),
+ libseccomp2 (= 2.4.1-2),
+ libselinux1 (= 2.9-2+b1),
+ libsigsegv2 (= 2.12-2),
+ libsmartcols1 (= 2.34-0.1),
+ libstdc++-8-dev (= 8.3.0-19),
+ libstdc++6 (= 9.1.0-10),
+ libsub-override-perl (= 0.09-2),
+ libsystemd0 (= 241-7),
+ libtinfo6 (= 6.1+20190713-2),
+ libtool (= 2.4.6-10),
+ libtsan0 (= 9.1.0-10),
+ libubsan1 (= 9.1.0-10),
+ libuchardet0 (= 0.0.6-3),
+ libudev1 (= 241-7),
+ libunistring2 (= 0.9.10-2),
+ libusb-0.1-4 (= 2:0.1.12-32),
+ libusb-dev (= 2:0.1.12-32),
+ libuuid1 (= 2.34-0.1),
+ libxml2 (= 2.9.4+dfsg1-7+b3),
+ linux-libc-dev (= 5.2.6-1),
+ login (= 1:4.7-2),
+ m4 (= 1.4.18-2),
+ make (= 4.2.1-1.2),
+ man-db (= 2.8.6.1-1),
+ mawk (= 1.3.3-17+b3),
+ ncurses-base (= 6.1+20190713-2),
+ ncurses-bin (= 6.1+20190713-2),
+ patch (= 2.7.6-6),
+ perl (= 5.28.1-6),
+ perl-base (= 5.28.1-6),
+ perl-modules-5.28 (= 5.28.1-6),
+ po-debconf (= 1.0.21),
+ sed (= 4.7-1),
+ sensible-utils (= 0.0.12),
+ sysvinit-utils (= 2.95-4),
+ tar (= 1.30+dfsg-6+b1),
+ util-linux (= 2.34-0.1),
+ xz-utils (= 5.2.4-1),
+ zlib1g (= 1:1.2.11.dfsg-1+b1)
+Environment:
+ DEB_BUILD_OPTIONS="parallel=4"
+ LC_ALL="C.UTF-8"
+ SOURCE_DATE_EPOCH="1565239019"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEfQCLkDuIfHLCXwkJVmLYJthWcBwFAl1LpvUACgkQVmLYJthW
+cBwgABAAxKvHQO3tQsP+yVPq+gNHJVVHJWUp/ADccjyO+L5s3TVAKVQDphD9pT8J
+K6RfBoHQOKOGbgcUXKBezhcgwUB6Kf4OE9QmNL8nDqa7s58tGAWCxeew/JPOJO2x
+LNOmTLzd3fxzm7iwlmcULcO4CqO7zIp+O+6bb7HHfWjUStflL4YrBTfM1b0ZsOt3
+c6F7gVJmjaNMt556rIHeNhzBNyJfLFksTT4nhMN+D8fpMV18RyCkF6SoIi2/Jhpb
+B+JbXUSlOOQ1DzSvX2Yf/pCgh4f7WD9KTnv/Tfx8LcAv2Af1usYHrS7jNs2W0x6S
+bEzkOqeJZqr2hx8CDTZeDeRy/3m8IufK2JLl7m8nJBleBLW2dftG+aQLIJHurNM1
+Hm63ycScZK61xZTZ25smCp9GhCKnTm0pwAoT5p5EX0vCG1LA3QKVk0jAco49PoaE
+Sfsy/AcRGcboLxAVL0q51ghhdxBhK0kdsjYoEYfRPPZ1FvSgmnf7srjrIujfLtoJ
+qmX3YsmTj/h1lGLX+EUKzTIdjA5jXV7XPzbjYWiLCLkFgHiMcQUuaCVCfYxIr/7P
+gIjAM3e0/RcGsOo48RUR9iIYYAUdxDUCkfq7W4HUequ6cym9WXjr4BqwShduA/av
+azbkqodn0G+2k/XkfujfcJnvBoZeQYzn7Z+KuOFx4SAlKtXQ4Z8=
+=wto3
+-----END PGP SIGNATURE-----
