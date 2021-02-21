@@ -1,0 +1,10 @@
+tests:
+  image: debian:bullseye
+  tags:
+    - docker
+  variables:
+    DEBUG: "1"
+  before_script:
+    - apt update -y && apt install -y git mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil
+  script:
+    - tests/run.sh
