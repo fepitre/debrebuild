@@ -1,13 +1,34 @@
-tests:
+variables:
+  DEBUG: "1"
+
+.test_job:
   image: debian:bullseye
   tags:
     - docker
-  variables:
-    DEBUG: "1"
   before_script:
     - apt update -y && apt install -y git mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-setuptools python3-rstr
     # Use python-debian code in python-debian#40
     - git clone -b extend-buildinfo https://salsa.debian.org/fepitre/python-debian
     - cd python-debian && python3 setup.py build install && cd ../
   script:
-    - tests/run.sh
+    - tests/run.sh $BUILDINFOS
+
+binnmu-unrepr:
+  extends: .test_job
+  variables:
+    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo.unreproducible
+
+debian-repr:
+  extends: .test_job
+  variables:
+    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo
+
+qubes-repr:
+  extends: .test_job
+  variables:
+    BUILDINFOS: tests/data/qubes-dnf_4.5.2-1+deb11u1_amd64.buildinfo
+
+http-qubes-repr:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo

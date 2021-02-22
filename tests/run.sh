@@ -14,6 +14,7 @@ if [ "0$(tput colors 2> /dev/null)" -ge 16 ]; then
 fi
 
 localdir="$(readlink -f "$(dirname "$0")")"
+buildinfos=("$@")
 
 COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap --gpg-sign-keyid 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
 QUBES_OPTS="$QUBES_OPTS --query-url https://ancient-tundra-75419.herokuapp.com"
@@ -52,10 +53,12 @@ do_build() {
     ln -sf rebuild*.link metadata
 }
 
-buildinfos=("$localdir"/data/*.buildinfo*)
-buildinfos+=(
-    "https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo"
-)
+if [ -z "${buildinfos[*]}" ]; then
+    buildinfos=("$localdir"/data/*.buildinfo*)
+    buildinfos+=(
+        "https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo"
+    )
+fi
 failed_buildinfos=()
 
 export GNUPGHOME="$localdir/gnupg"

@@ -550,7 +550,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                     'dpkg-source --no-check -x /*.dsc {}'.format(quote(self.buildinfo.build_path)),
                     'cd {}'.format(quote(self.buildinfo.build_path)),
                 ] + binnmucmds + [
-                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(quote(' '.join(self.get_env())), self.buildinfo.host_arch, build)
+                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
             ))
         ]
@@ -655,8 +655,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             self.prepare_aptcache()
             self.find_build_dependencies()
         except (apt_pkg.Error, apt.cache.FetchFailedException,
-                requests.exceptions.ConnectionError):
-            raise RebuilderException("Failed to fetch packages")
+                requests.exceptions.ConnectionError) as e:
+            raise RebuilderException(f"Failed to fetch packages: {str(e)}")
         except KeyboardInterrupt:
             raise RebuilderException("Interruption")
         finally:
