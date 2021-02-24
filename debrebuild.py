@@ -175,7 +175,7 @@ class Rebuilder:
         self.tempaptdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = []
-        self.source_timestamp = None
+        self.source_date = None
         self.tmpdir = os.environ.get('TMPDIR', '/tmp')
 
         if buildinfo_file.startswith('http://') or \
@@ -224,18 +224,26 @@ class Rebuilder:
 
     def get_sources_list(self):
         sources_list = []
-        url = "{}/{}".format(self.base_mirror, self.buildinfo.build_date)
-        base_dist = self.buildinfo.get_debian_suite()
-        release_url = "{}/dists/{}/Release".format(url, base_dist)
-        resp = self.get_response(release_url)
-        if resp.ok:
-            sources_list.append("deb {}/ {} main".format(url, base_dist))
-            sources_list.append("deb-src {}/ unstable main".format(url))
-        resp.close()
+        dist = self.buildinfo.get_debian_suite()
 
-        # WIP
-        sources_list.append(
-            "deb-src http://deb.debian.org/debian {} main".format(base_dist))
+        build_url = f"{self.base_mirror}/{self.buildinfo.build_date}"
+        release_url = f"{build_url}/dists/{dist}/Release"
+        if not self.get_response(release_url).ok:
+            logger.error(f"Cannot fetch {dist} Release file: {release_url}")
+            dist = "unstable"
+
+        build_repo = f"deb {self.base_mirror}/{self.buildinfo.build_date} {dist} main"
+        source_repo = f"deb-src {self.base_mirror}/{self.source_date} unstable main"
+
+        sources_list.append(build_repo)
+        sources_list.append(source_repo)
+
+        # # WIP
+        # sources_list.append(
+        #     "deb-src http://deb.debian.org/debian {} main".format(dist))
+        # if dist != "sid":
+        #     sources_list.append(
+        #         "deb-src http://deb.debian.org/debian unstable main")
 
         if self.extra_repository_files:
             for repo_file in self.extra_repository_files:
@@ -281,6 +289,8 @@ class Rebuilder:
         return sources_list
 
     def get_src_date(self):
+        if self.source_date:
+            return self.source_date
         srcpkgname = self.buildinfo.source
         srcpkgver = self.buildinfo.source_version
         logger.debug("Get source package info: {}={}".format(
@@ -294,7 +304,7 @@ class Rebuilder:
             data = resp.json()
         except json.decoder.JSONDecodeError:
             raise RebuilderException(
-                "Cannot parse response for source: {}".format(self.buildinfo.source))
+                f"Cannot parse response for source: {self.buildinfo.source}")
 
         package_from_main = []
         for result in data.get('result', []):
@@ -309,7 +319,8 @@ class Rebuilder:
             raise RebuilderException(
                 "No package with the right hash in Debian official")
 
-        return package_from_main[0]['first_seen']
+        self.source_date = package_from_main[0]['first_seen']
+        return self.source_date
 
     def get_bin_date(self, package):
         pkgname = package.name
@@ -326,7 +337,7 @@ class Rebuilder:
             data = resp.json()
         except json.decoder.JSONDecodeError:
             raise RebuilderException(
-                "Cannot parse response for package: {}".format(package.name))
+                f"Cannot parse response for package: {package.name}")
 
         pkghash = None
         if len(data.get('result', [])) == 1:
@@ -339,9 +350,9 @@ class Rebuilder:
             if not pkgarch and self.buildinfo.build_arch != package.architecture and \
                     "all" != package.architecture:
                 raise RebuilderException(
-                    "Package {} was implicitly requested {} but only {} was "
-                    "found".format(
-                        pkgname, self.buildinfo.build_arch, package.architecture))
+                    f"Package {pkgname} was implicitly requested "
+                    f"{self.buildinfo.build_arch} but only "
+                    f"{package.architecture} was found")
             pkgarch = package.architecture
         else:
             if not pkgarch:
@@ -352,7 +363,7 @@ class Rebuilder:
                     break
             if not pkghash:
                 raise RebuilderException(
-                    "Cannot find package in architecture {}".format(pkgarch))
+                    f"Cannot find package in architecture {pkgarch}")
             package.architecture = pkgarch
 
         package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if
@@ -493,13 +504,14 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         return apt_build_depends
 
     def get_chroot_basemirror(self):
-        # basemirror = 'deb {}/{}/ {} main'.format(
-        #     self.base_mirror, self.buildinfo.get_build_date(), self.buildinfo.get_debian_suite())
-
         # We select the oldest required snapshot to ensure that essential packages
         # like "apt" will not be removed due to downgrade process
-        basemirror = self.required_timestamp_sources[-1].replace(
-            'unstable', self.buildinfo.get_debian_suite())
+        if self.buildinfo.get_debian_suite() != "sid":
+            basemirror = self.required_timestamp_sources[-1]
+            basemirror = basemirror.replace(
+                'unstable', self.buildinfo.get_debian_suite())
+        else:
+            basemirror = f'deb {self.base_mirror}/{self.buildinfo.build_date}/ unstable main'
 
         return basemirror
 
@@ -615,13 +627,14 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                     raise RebuilderException(f"Cannot find {f['name']} in new files")
                 cur_status = True
                 for prop in f.keys():
+                    if prop not in new_file.keys():
+                        raise RebuilderException(
+                            "{} is not used in both buildinfo files".format(prop))
                     if prop == "size":
                         if f["size"] != new_file["size"]:
                             logger.error("Size differs for {}".format(f))
                             cur_status = False
-                    if prop not in new_file.keys():
-                        raise RebuilderException(
-                            "{} is not used in both buildinfo files".format(prop))
+                        continue
                     if f[prop] != new_file[prop]:
                         logger.error("Value of {} differs for {}".format(prop, f))
                         cur_status = False
@@ -678,7 +691,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
-            self.source_timestamp = self.get_src_date()
+            self.get_src_date()
             if self.use_metasnap:
                 logger.debug("Use metasnap for getting required timestamps")
                 self.find_build_dependencies_from_metasnap()
@@ -831,6 +844,10 @@ def main():
     if args.gpg_verify and not args.gpg_verify_key:
         logger.error(
             "Cannot verify buildinfo signature without GPG keyring provided")
+        return 1
+
+    if not args.output:
+        logger.error("Please provide output directory")
         return 1
 
     try:
