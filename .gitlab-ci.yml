@@ -5,6 +5,10 @@ variables:
   image: debian:bullseye
   tags:
     - docker
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - sources
   before_script:
     - apt update -y && apt install -y git mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-setuptools python3-rstr
     # Use python-debian code in python-debian#40
@@ -12,6 +16,8 @@ variables:
     - cd python-debian && python3 setup.py build install && cd ../
   script:
     - tests/run.sh $BUILDINFOS
+  after_script:
+    - mv /tmp/sources $CI_PROJECT_DIR/
 
 binnmu-unrepr:
   extends: .test_job
@@ -32,3 +38,20 @@ http-qubes-repr:
   extends: .test_job
   variables:
     BUILDINFOS: https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo
+
+http-debian-repr:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_amd64.buildinfo
+
+metasnap-binnmu-unrepr:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--use-metasnap"
+    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo.unreproducible
+
+metasnap-debian-repr:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--use-metasnap"
+    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo

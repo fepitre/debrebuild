@@ -42,6 +42,8 @@ do_build() {
     DEBREBUILD_OPTS="$COMMON_OPTS"
     if [[ "$package" =~ ^qubes- ]] || [[ "$buildinfo" =~ ^.*qubes-os.org ]]; then
         DEBREBUILD_OPTS="$DEBREBUILD_OPTS $QUBES_OPTS"
+    else
+        DEBREBUILD_OPTS="$DEBREBUILD_OPTS $DEBIAN_OPTS"
     fi
     if [[ "$buildinfo" =~ .unreproducible$ ]]; then
         DEBREBUILD_OPTS="$DEBREBUILD_OPTS --no-checksums-verification"

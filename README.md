@@ -2,12 +2,14 @@ debrebuild
 ===
 
 ```
-usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--extra-repository-file EXTRA_REPOSITORY_FILE]
-                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify] [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY]
+usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--use-metasnap]
+                     [--extra-repository-file EXTRA_REPOSITORY_FILE] [--extra-repository-key EXTRA_REPOSITORY_KEY]
+                     [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify] [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY]
                      [--no-checksums-verification] [--verbose] [--debug]
                      buildinfo
 
-Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the associated source and build information.
+Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the
+associated source and build information.
 
 positional arguments:
   buildinfo             Input buildinfo file. Local or remote file.
@@ -18,6 +20,9 @@ optional arguments:
   --builder BUILDER     Which building software should be used. (default: none)
   --query-url QUERY_URL
                         API url for querying package and binary information (default: http://snapshot.debian.org)
+  --use-metasnap        Use metasnap.debian.net. In contrast to snapshot.debian.org service, the metasnap.debian.net service will
+                        always return a minimal set of timestamps if the package versions were at some point part of Debian unstable
+                        main.
   --extra-repository-file EXTRA_REPOSITORY_FILE
                         Add repository file content to the list of apt sources during the package build.
   --extra-repository-key EXTRA_REPOSITORY_KEY

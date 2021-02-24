@@ -69,12 +69,10 @@ class Package:
             result = "{} {}".format(self.name, self.version)
         return result
 
-    def to_apt_install_format(self, build_arch):
-        if self.architecture == "all" or self.architecture == build_arch:
-            result = "{}={}".format(self.name, self.version)
-        else:
-            result = "{}:{}={}".format(
-                self.name, self.architecture, self.version)
+    def to_apt_install_format(self, build_arch=None):
+        result = "{}={}".format(self.name, self.version)
+        if build_arch and self.architecture in ("all", build_arch):
+            result = "{}:{}={}".format(self.name, self.architecture, self.version)
         return result
 
     def __repr__(self):
@@ -159,7 +157,8 @@ class Rebuilder:
                  gpg_sign_keyid=None,
                  gpg_verify=False,
                  gpg_verify_key=None,
-                 proxy=None):
+                 proxy=None,
+                 use_metasnap=False):
         self.buildinfo = None
         self.snapshot_url = snapshot_url
         self.base_mirror = base_mirror
@@ -172,11 +171,11 @@ class Rebuilder:
                 "http:": self.proxy,
                 "https": self.proxy
             }
-
+        self.use_metasnap = use_metasnap
         self.tempaptdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = []
-
+        self.source_timestamp = None
         self.tmpdir = os.environ.get('TMPDIR', '/tmp')
 
         if buildinfo_file.startswith('http://') or \
@@ -368,7 +367,34 @@ class Rebuilder:
         package.hash = pkghash
         return package.first_seen
 
+    def find_build_dependencies_from_metasnap(self):
+        import urllib.parse
+        pkgs = [pkg.to_apt_install_format()
+                for pkg in self.buildinfo.get_build_depends()[:]]
+        pkgs = urllib.parse.quote_plus(",".join(pkgs))
+        url = f'https://metasnap.debian.net/cgi-bin/' \
+              f'api?archive=debian' \
+              f'&pkgs={pkgs}' \
+              f'&arch={self.buildinfo.build_arch}' \
+              f'&suite=unstable' \
+              f'&comp=main'
+        resp = self.get_response(url)
+        if resp.ok:
+            # latest first
+            content = reversed(resp.text.strip('\n').split('\n'))
+            for line in content:
+                arch, timestamp = line.split()
+                if arch != self.buildinfo.build_arch:
+                    raise RebuilderException("Unable to handle multiple architectures")
+                self.required_timestamp_sources.append(
+                    f"deb {self.base_mirror}/{timestamp} unstable main")
+        else:
+            logger.error(RebuilderException("Cannot get timestamps from metasnap"))
+
     def find_build_dependencies(self):
+        # Prepare APT cache for finding dependencies
+        self.prepare_aptcache()
+
         notfound_packages = self.buildinfo.get_build_depends()[:]
         temp_sources_list = self.tempaptdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
@@ -651,9 +677,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
-            self.get_src_date()
-            self.prepare_aptcache()
-            self.find_build_dependencies()
+            self.source_timestamp = self.get_src_date()
+            if self.use_metasnap:
+                logger.debug("Use metasnap for getting required timestamps")
+                self.find_build_dependencies_from_metasnap()
+            if not self.required_timestamp_sources:
+                logger.debug("Use snapshot for getting required timestamps")
+                self.find_build_dependencies()
         except (apt_pkg.Error, apt.cache.FetchFailedException,
                 requests.exceptions.ConnectionError) as e:
             raise RebuilderException(f"Failed to fetch packages: {str(e)}")
@@ -711,6 +741,14 @@ def get_args():
         help="API url for querying package and binary information "
              "(default: http://snapshot.debian.org)",
         default="http://snapshot.debian.org"
+    )
+    parser.add_argument(
+        "--use-metasnap",
+        help="Use metasnap.debian.net. In contrast to snapshot.debian.org "
+             "service, the metasnap.debian.net service will always return a "
+             "minimal set of timestamps if the package versions were at some "
+             "point part of Debian unstable main.",
+        action="store_true"
     )
     parser.add_argument(
         "--extra-repository-file",
@@ -803,7 +841,8 @@ def main():
             gpg_sign_keyid=args.gpg_sign_keyid,
             gpg_verify=args.gpg_verify,
             gpg_verify_key=args.gpg_verify_key,
-            proxy=args.proxy
+            proxy=args.proxy,
+            use_metasnap=args.use_metasnap
         )
         rebuilder.run(builder=args.builder, output=realpath(args.output),
                       no_checksums_verification=args.no_checksums_verification)
