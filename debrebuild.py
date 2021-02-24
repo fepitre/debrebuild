@@ -634,7 +634,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             raise RebuilderException("Failed to verify checksums")
 
     def generate_intoto_metadata(self, output, new_buildinfo):
-        new_files = new_buildinfo.checksums.keys()
+        new_files = [f['name'] for f in new_buildinfo.checksums["sha256"]
+                     if not f['name'].endswith('.dsc')]
         cmd = [
             "in-toto-run", "--step-name=rebuild", "--no-command",
             "--products"
