@@ -39,10 +39,16 @@ http-qubes-repr:
   variables:
     BUILDINFOS: https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo
 
-http-debian-repr:
+apt-amd64:
   extends: .test_job
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_amd64.buildinfo
+
+apt-all:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--no-checksums-verification"
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_all.buildinfo
 
 metasnap-binnmu-unrepr:
   extends: .test_job

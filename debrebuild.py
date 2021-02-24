@@ -523,11 +523,18 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 break
         return has_build_essential
 
-    def mmdebstrap(self, output, build_arch):
-        if build_arch in ("source", "all", "any"):
-            build = build_arch
+    def mmdebstrap(self, output):
+        if self.buildinfo.build_archany and self.buildinfo.build_archall:
+            build = "any,all"
+        elif self.buildinfo.build_archall:
+            build = "all"
+        elif self.buildinfo.build_archany:
+            build = "any"
+        elif self.buildinfo.build_source:
+            build = "source"
         else:
-            build = "binary"
+            raise RebuilderException("Cannot determine what to build")
+
         cmd = [
             'env', '-i',
             'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
@@ -714,7 +721,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if builder == "none":
             return
         if builder == "mmdebstrap":
-            self.mmdebstrap(output, build_arch)
+            self.mmdebstrap(output)
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
