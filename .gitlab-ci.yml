@@ -50,6 +50,11 @@ apt-all:
     DEBIAN_OPTS: "--no-checksums-verification"
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_all.buildinfo
 
+debian-root-fails:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/t/tar/tar_1.34+dfsg-1_amd64.buildinfo
+
 metasnap-binnmu-unrepr:
   extends: .test_job
   variables:

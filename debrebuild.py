@@ -537,6 +537,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         else:
             raise RebuilderException("Cannot determine what to build")
 
+        # Prepare mmdebstrap command
         cmd = [
             'env', '-i',
             'PATH=/usr/sbin:/usr/bin:/sbin:/bin',
@@ -551,10 +552,17 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--aptopt=Acquire::Retries "5";',
             '--aptopt=APT::Get::allow-downgrades "true";'
         ]
+
+        # Support for proxy
         if self.proxy:
             cmd += [
                 '--aptopt=Acquire::http::proxy "{}";'.format(self.proxy)
             ]
+
+        # Create builduser for running the build in mmdebstrap as builduser
+        cmd += [
+            '--essential-hook=chroot "$1" useradd -m -p "" builduser -s /bin/bash'
+        ]
 
         # Workaround for missing build-essential in buildinfo dependencies
         if not self.has_build_essential_dependency():
@@ -562,6 +570,12 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--essential-hook=chroot "$1" sh -c "apt-get --yes install build-essential"'
             ]
 
+        # Add dependencies for running build as builduser
+        cmd += [
+            '--essential-hook=chroot "$1" sh -c "apt-get --yes install fakeroot util-linux"'
+        ]
+
+        # Copy extra keys and repository files
         if self.extra_repository_keys:
             cmd += [
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
@@ -572,6 +586,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--essential-hook=chroot "$1" sh -c "apt-get --yes install apt-transport-https ca-certificates"'
             ]
 
+        # Update APT cache with provided sources.list
         cmd += [
             '--essential-hook=chroot "$1" sh -c \"{}\"'.format(" && ".join(
                 [
@@ -582,22 +597,35 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             ))
         ]
 
+        # In case of binNMU build, we add the changelog entry from buildinfo
         binnmucmds = []
         if self.buildinfo.logentry:
             binnmucmds += [
+                'cd {}'.format(quote(self.buildinfo.get_build_path())),
                 "{{ printf '%s' {}; cat debian/changelog; }} > debian/changelog.debrebuild".format(quote(self.buildinfo.logentry)),
                 "mv debian/changelog.debrebuild debian/changelog"
             ]
 
+        # Prepare build directory and get package source
         cmd += [
             '--customize-hook=chroot "$1" env --unset=TMPDIR sh -c \"{}\"'.format(" && ".join(
                 [
                     'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.source_version),
                     'mkdir -p {}'.format(os.path.dirname(quote(self.buildinfo.get_build_path()))),
                     'dpkg-source --no-check -x /*.dsc {}'.format(quote(self.buildinfo.get_build_path())),
-                    'cd {}'.format(quote(self.buildinfo.get_build_path())),
                 ] + binnmucmds + [
-                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, build)
+                    'chown -R builduser:builduser {}'.format(os.path.dirname(quote(self.buildinfo.get_build_path()))),
+                ]
+            ))
+        ]
+
+        # Prepare build command
+        cmd += [
+            '--customize-hook=chroot "$1" env --unset=TMPDIR runuser builduser -c \"{}\"'.format(" && ".join(
+                [
+                    'cd {}'.format(quote(self.buildinfo.get_build_path())),
+                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(
+                        ' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
             ))
         ]
@@ -608,6 +636,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '/dev/null',
             self.get_chroot_basemirror()
         ]
+
         logger.debug(' '.join(cmd))
         if subprocess.run(cmd).returncode != 0:
             raise RebuilderException("mmdebstrap failed")
