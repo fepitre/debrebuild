@@ -101,6 +101,8 @@ class BuildInfo:
         self.version = self.parsed_info['version']
         if not self.source_version:
             self.source_version = self.version
+        if ':' in self.version:
+            self.version = self.version.split(':')[1]
         self.build_path = self.parsed_info.get('build-path', None)
         self.build_arch = self.parsed_info.get('build-architecture', None)
         if not self.build_arch:
@@ -591,9 +593,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--customize-hook=chroot "$1" env --unset=TMPDIR sh -c \"{}\"'.format(" && ".join(
                 [
                     'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.source_version),
-                    'mkdir -p {}'.format(os.path.dirname(quote(self.buildinfo.build_path))),
-                    'dpkg-source --no-check -x /*.dsc {}'.format(quote(self.buildinfo.build_path)),
-                    'cd {}'.format(quote(self.buildinfo.build_path)),
+                    'mkdir -p {}'.format(os.path.dirname(quote(self.buildinfo.get_build_path()))),
+                    'dpkg-source --no-check -x /*.dsc {}'.format(quote(self.buildinfo.get_build_path())),
+                    'cd {}'.format(quote(self.buildinfo.get_build_path())),
                 ] + binnmucmds + [
                     'env {} dpkg-buildpackage -uc -a {} --build={}'.format(' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
@@ -601,7 +603,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         ]
 
         cmd += [
-            '--customize-hook=sync-out {} {}'.format(os.path.dirname(quote(self.buildinfo.build_path)), output),
+            '--customize-hook=sync-out {} {}'.format(os.path.dirname(quote(self.buildinfo.get_build_path())), output),
             self.buildinfo.get_debian_suite(),
             '/dev/null',
             self.get_chroot_basemirror()
@@ -688,9 +690,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             build_arch = "source"
         else:
             raise RebuilderException("Nothing to build")
-
-        new_buildinfo_file = "{}/{}_{}_{}.buildinfo".format(
-            output, self.buildinfo.source, self.buildinfo.version, build_arch)
+        new_buildinfo_file = f"{output}/{self.buildinfo.source}_{self.buildinfo.version}_{build_arch}.buildinfo"
         logger.debug("New buildinfo file: {}".format(new_buildinfo_file))
         if os.path.exists(new_buildinfo_file):
             raise RebuilderException(

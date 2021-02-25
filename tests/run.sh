@@ -3,7 +3,7 @@
 set -e
 if [ "$DEBUG" == 1 ]; then
     set -x
-    COMMON_OPTS="--debug"
+    COMMON_OPTS="$COMMON_OPTS --debug"
 fi
 
 if [ "0$(tput colors 2> /dev/null)" -ge 16 ]; then
