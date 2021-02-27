@@ -240,13 +240,6 @@ class Rebuilder:
         sources_list.append(build_repo)
         sources_list.append(source_repo)
 
-        # # WIP
-        # sources_list.append(
-        #     "deb-src http://deb.debian.org/debian {} main".format(dist))
-        # if dist != "sid":
-        #     sources_list.append(
-        #         "deb-src http://deb.debian.org/debian unstable main")
-
         if self.extra_repository_files:
             for repo_file in self.extra_repository_files:
                 try:
@@ -550,7 +543,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--aptopt=Acquire::http::Dl-Limit "1000";',
             '--aptopt=Acquire::https::Dl-Limit "1000";',
             '--aptopt=Acquire::Retries "5";',
-            '--aptopt=APT::Get::allow-downgrades "true";'
         ]
 
         # Support for proxy
@@ -608,7 +600,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Prepare build directory and get package source
         cmd += [
-            '--customize-hook=chroot "$1" env --unset=TMPDIR sh -c \"{}\"'.format(" && ".join(
+            '--customize-hook=chroot "$1" env sh -c \"{}\"'.format(" && ".join(
                 [
                     'apt-get source --only-source -d {}={}'.format(self.buildinfo.source, self.buildinfo.source_version),
                     'mkdir -p {}'.format(os.path.dirname(quote(self.buildinfo.get_build_path()))),
@@ -621,10 +613,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Prepare build command
         cmd += [
-            '--customize-hook=chroot "$1" env --unset=TMPDIR runuser builduser -c \"{}\"'.format(" && ".join(
+            '--customize-hook=chroot "$1" runuser -u builduser -- env --chdir={} {}'.format(quote(self.buildinfo.get_build_path()), " && ".join(
                 [
-                    'cd {}'.format(quote(self.buildinfo.get_build_path())),
-                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(
+                    '{} dpkg-buildpackage -uc -a {} --build={}'.format(
                         ' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
             ))
