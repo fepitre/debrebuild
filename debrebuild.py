@@ -553,7 +553,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Create builduser for running the build in mmdebstrap as builduser
         cmd += [
-            '--essential-hook=chroot "$1" useradd -m -p "" builduser -s /bin/bash'
+            '--essential-hook=chroot "$1" useradd --no-create-home -d /nonexistent -p "" builduser -s /bin/bash'
         ]
 
         # Workaround for missing build-essential in buildinfo dependencies
