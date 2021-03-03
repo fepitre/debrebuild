@@ -400,7 +400,7 @@ class Rebuilder:
 
         resp = self.get_response(url)
         if not resp.ok:
-            logger.error(RebuilderException("Cannot get timestamps from metasnap"))
+            logger.error(f"Cannot get timestamps from metasnap: {url}")
             return
 
         # latest first
