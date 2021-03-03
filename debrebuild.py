@@ -182,17 +182,15 @@ class Rebuilder:
 
         if buildinfo_file.startswith('http://') or \
                 buildinfo_file.startswith('https://'):
-            try:
-                resp = self.session.get(buildinfo_file)
-                resp.raise_for_status()
-                # We store remote buildinfo in a temporary file
-                handle, buildinfo_file = tempfile.mkstemp(
-                    prefix="buildinfo-", dir=self.tmpdir)
-                with open(handle, 'w') as fd:
-                    fd.write(resp.text)
-            except (requests.exceptions.ConnectionError,
-                    requests.exceptions.HTTPError) as e:
-                raise RebuilderException("Cannot get buildinfo: {}".format(e))
+            resp = self.get_response(buildinfo_file)
+            if not resp.ok:
+                raise RebuilderException("Cannot get buildinfo: {}")
+
+            # We store remote buildinfo in a temporary file
+            handle, buildinfo_file = tempfile.mkstemp(
+                prefix="buildinfo-", dir=self.tmpdir)
+            with open(handle, 'w') as fd:
+                fd.write(resp.text)
         else:
             buildinfo_file = realpath(buildinfo_file)
 
@@ -221,7 +219,13 @@ class Rebuilder:
         return env
 
     def get_response(self, url):
-        resp = self.session.get(url)
+        try:
+            resp = self.session.get(url)
+        except requests.exceptions.ConnectionError as e:
+            # logger.error(f"Failed to get URL {url}: {str(e)}")
+            # WIP: forge a better response?
+            resp = requests.models.Response()
+            resp.status_code = 503
         return resp
 
     def get_sources_list(self):
@@ -230,7 +234,8 @@ class Rebuilder:
 
         build_url = f"{self.base_mirror}/{self.buildinfo.build_date}"
         release_url = f"{build_url}/dists/{dist}/Release"
-        if not self.get_response(release_url).ok:
+        resp = self.get_response(release_url)
+        if not resp.ok:
             logger.error(f"Cannot fetch {dist} Release file: {release_url}")
             dist = "unstable"
 
@@ -384,18 +389,20 @@ class Rebuilder:
               f'&arch={self.buildinfo.build_arch}' \
               f'&suite=unstable' \
               f'&comp=main'
+
         resp = self.get_response(url)
-        if resp.ok:
-            # latest first
-            content = reversed(resp.text.strip('\n').split('\n'))
-            for line in content:
-                arch, timestamp = line.split()
-                if arch != self.buildinfo.build_arch:
-                    raise RebuilderException("Unable to handle multiple architectures")
-                self.required_timestamp_sources.append(
-                    f"deb {self.base_mirror}/{timestamp} unstable main")
-        else:
+        if not resp.ok:
             logger.error(RebuilderException("Cannot get timestamps from metasnap"))
+            return
+
+        # latest first
+        content = reversed(resp.text.strip('\n').split('\n'))
+        for line in content:
+            arch, timestamp = line.split()
+            if arch != self.buildinfo.build_arch:
+                raise RebuilderException("Unable to handle multiple architectures")
+            self.required_timestamp_sources.append(
+                f"deb {self.base_mirror}/{timestamp} unstable main")
 
     def find_build_dependencies(self):
         # Prepare APT cache for finding dependencies
