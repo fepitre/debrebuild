@@ -44,12 +44,6 @@ apt-amd64:
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_amd64.buildinfo
 
-apt-all:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--no-checksums-verification"
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_all.buildinfo
-
 debian-root-fails:
   extends: .test_job
   variables:

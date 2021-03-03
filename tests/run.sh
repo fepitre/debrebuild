@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -e
 if [ "$DEBUG" == 1 ]; then
     set -x
     COMMON_OPTS="$COMMON_OPTS --debug"
@@ -45,12 +44,13 @@ do_build() {
     else
         DEBREBUILD_OPTS="$DEBREBUILD_OPTS $DEBIAN_OPTS"
     fi
-    if [[ "$buildinfo" =~ .unreproducible$ ]]; then
-        DEBREBUILD_OPTS="$DEBREBUILD_OPTS --no-checksums-verification"
-    fi
     mkdir -p "$output"
-    "$localdir"/../debrebuild.py $DEBREBUILD_OPTS --output "$output" "$buildinfo" || return 1
-    cd "$output"
+    "$localdir"/../debrebuild.py $DEBREBUILD_OPTS --output "$output" "$buildinfo"
+    exit_code=$?
+    if [[ "$buildinfo" =~ .unreproducible$ ]] && [ $exit_code != 2 ]; then
+        return 1
+    fi
+    cd "$output" || return 1
     ln -sf $package*.buildinfo buildinfo
     ln -sf rebuild*.link metadata
 }

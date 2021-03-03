@@ -53,6 +53,14 @@ class RebuilderException(Exception):
     pass
 
 
+class RebuilderInTotoError(Exception):
+    pass
+
+
+class RebuilderChecksumsError(Exception):
+    pass
+
+
 class Package:
     def __init__(self, name, version, architecture=None):
         self.name = name
@@ -660,27 +668,32 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                         new_file = nf
                         break
                 if not new_file:
-                    raise RebuilderException(f"Cannot find {f['name']} in new files")
+                    raise RebuilderException(
+                        f"Cannot find {f['name']} in new files")
                 cur_status = True
                 for prop in f.keys():
                     if prop not in new_file.keys():
                         raise RebuilderException(
-                            "{} is not used in both buildinfo files".format(prop))
+                            f"'{prop}' is not used in both buildinfo files")
                     if prop == "size":
                         if f["size"] != new_file["size"]:
-                            logger.error("Size differs for {}".format(f))
+                            logger.error(f"Size differs for {f['name']}")
                             cur_status = False
                         continue
                     if f[prop] != new_file[prop]:
-                        logger.error("Value of {} differs for {}".format(prop, f))
+                        logger.error(f"Value of {prop} differs for {f['name']}")
                         cur_status = False
                 if cur_status:
-                    logger.info("{}: OK".format(f))
+                    logger.info("{}: OK".format(f['name']))
                 else:
                     status = False
 
         if not status:
-            raise RebuilderException("Failed to verify checksums")
+            msg = "Checksums: FAIL"
+            logger.error(msg)
+            raise RebuilderChecksumsError
+        else:
+            logger.info("Checksums: OK")
 
     def generate_intoto_metadata(self, output, new_buildinfo):
         new_files = [f['name'] for f in new_buildinfo.checksums["sha256"]
@@ -693,8 +706,15 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             cmd += ["--gpg", self.gpg_sign_keyid]
         else:
             cmd += ["--gpg"]
-        if subprocess.run(cmd, cwd=output).returncode != 0:
-            raise RebuilderException("in-toto metadata generation failed")
+        try:
+            result = subprocess.run(cmd, cwd=output)
+            returncode = result.returncode
+        except FileNotFoundError:
+            logger.error("in-toto-run not found!")
+            returncode = 1
+
+        if returncode != 0:
+            raise RebuilderInTotoError("in-toto metadata generation failed")
         logger.info("in-toto metadata generation: OK")
 
     @staticmethod
@@ -706,7 +726,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             raise RebuilderException("Cannot determinate builder host architecture")
         return builder_architecture
 
-    def run(self, builder, output, no_checksums_verification=False):
+    def run(self, builder, output):
         # Predict new buildinfo name created by builder
         # Based on dpkg/scripts/dpkg-genbuildinfo.pl
         if self.buildinfo.architecture:
@@ -752,16 +772,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
-        try:
-            self.verify_checksums(new_buildinfo)
-            logger.info("Checksums: OK")
-        except RebuilderException as e:
-            msg = "Checksums: FAIL: {}.".format(str(e))
-            if no_checksums_verification:
-                logger.error(msg)
-            else:
-                raise RebuilderException(msg)
         self.generate_intoto_metadata(output, new_buildinfo)
+        self.verify_checksums(new_buildinfo)
 
 
 def get_args():
@@ -828,12 +840,6 @@ def get_args():
         help="Proxy address to use."
     )
     parser.add_argument(
-        "--no-checksums-verification",
-        help="Don't fail on checksums verification between original and"
-             " rebuild packages",
-        action="store_true",
-    )
-    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Display logger info messages."
@@ -896,8 +902,9 @@ def main():
             proxy=args.proxy,
             use_metasnap=args.use_metasnap
         )
-        rebuilder.run(builder=args.builder, output=realpath(args.output),
-                      no_checksums_verification=args.no_checksums_verification)
+        rebuilder.run(builder=args.builder, output=realpath(args.output))
+    except RebuilderChecksumsError:
+        return 2
     except RebuilderException as e:
         logger.error(str(e))
         return 1
