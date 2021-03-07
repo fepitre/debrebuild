@@ -47,8 +47,11 @@ do_build() {
     mkdir -p "$output"
     "$localdir"/../debrebuild.py $DEBREBUILD_OPTS --output "$output" "$buildinfo"
     exit_code=$?
-    if [[ "$buildinfo" =~ .unreproducible$ ]] && [ $exit_code != 2 ]; then
-        return 1
+    if [[ "$buildinfo" =~ .unreproducible$ ]] && [ $exit_code == 2 ]; then
+        exit_code=0
+    fi
+    if [ $exit_code != 0 ]; then
+        return $exit_code
     fi
     cd "$output" || return 1
     ln -sf $package*.buildinfo buildinfo

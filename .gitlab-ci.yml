@@ -49,6 +49,11 @@ debian-root-fails:
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/t/tar/tar_1.34+dfsg-1_amd64.buildinfo
 
+debian-buildpath:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/acorn/acorn_8.0.5+ds+~cs19.19.27-1_all.buildinfo
+
 metasnap-binnmu-unrepr:
   extends: .test_job
   variables:

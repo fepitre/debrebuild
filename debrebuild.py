@@ -34,7 +34,7 @@ import rstr
 
 from dateutil.parser import parse as parsedate
 from libs.openpgp import OpenPGPEnvironment, OpenPGPException
-from shlex import quote
+from shlex import quote, join
 
 logger = logging.getLogger('debrebuild')
 console_handler = logging.StreamHandler(sys.stderr)
@@ -146,6 +146,7 @@ class BuildInfo:
         if not self.build_path:
             self.build_path = "/build/{}-{}".format(
                 self.source, rstr.letters(10))
+        self.build_path = self.build_path.replace('~', '-')
         return self.build_path
 
     def get_build_depends(self):
@@ -586,7 +587,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if self.extra_repository_keys:
             cmd += [
                 '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(
-                    ' '.join(self.extra_repository_keys))]
+                    join(self.extra_repository_keys))]
 
         if self.extra_repository_files:
             cmd += [
