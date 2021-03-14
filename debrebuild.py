@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 #
-# The Qubes OS Project, http://www.qubes-os.org
-#
 # Copyright (C) 2021 Frédéric Pierret (fepitre) <frederic.pierret@qubes-os.org>
 #
 # This program is free software; you can redistribute it and/or modify
