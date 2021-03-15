@@ -27,7 +27,7 @@ import argparse
 import logging
 import apt
 import apt_pkg
-import debian.deb822
+import libs.deb822
 import rstr
 
 from dateutil.parser import parse as parsedate
@@ -93,7 +93,7 @@ class BuildInfo:
                 "Cannot find buildinfo file: {}".format(buildinfo_file))
 
         with open(buildinfo_file) as fd:
-            self.parsed_info = debian.deb822.BuildInfo(fd)
+            self.parsed_info = libs.deb822.BuildInfo(fd)
 
         # in case of binnmu we have e.g.
         #   Source: 0ad (0.0.23-1)
