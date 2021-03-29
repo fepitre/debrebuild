@@ -160,8 +160,7 @@ class BuildInfo:
 
 
 class Rebuilder:
-    def __init__(self, buildinfo_file, snapshot_url,
-                 base_mirror="http://snapshot.debian.org/archive/debian",
+    def __init__(self, buildinfo_file, snapshot_url, snapshot_mirror,
                  extra_repository_files=None, extra_repository_keys=None,
                  gpg_sign_keyid=None,
                  gpg_verify=False,
@@ -170,7 +169,7 @@ class Rebuilder:
                  use_metasnap=False):
         self.buildinfo = None
         self.snapshot_url = snapshot_url
-        self.base_mirror = base_mirror
+        self.base_mirror = f"{snapshot_mirror}/archive/debian"
         self.extra_repository_files = extra_repository_files
         self.extra_repository_keys = extra_repository_keys
         self.gpg_sign_keyid = gpg_sign_keyid
@@ -186,6 +185,7 @@ class Rebuilder:
         self.required_timestamp_sources = []
         self.source_date = None
         self.tmpdir = os.environ.get('TMPDIR', '/tmp')
+        self.buildinfo_file = None
 
         if buildinfo_file.startswith('http://') or \
                 buildinfo_file.startswith('https://'):
@@ -194,18 +194,18 @@ class Rebuilder:
                 raise RebuilderException("Cannot get buildinfo: {}")
 
             # We store remote buildinfo in a temporary file
-            handle, buildinfo_file = tempfile.mkstemp(
+            handle, self.buildinfo_file = tempfile.mkstemp(
                 prefix="buildinfo-", dir=self.tmpdir)
             with open(handle, 'w') as fd:
                 fd.write(resp.text)
         else:
-            buildinfo_file = realpath(buildinfo_file)
+            self.buildinfo_file = realpath(buildinfo_file)
 
         if gpg_verify and gpg_verify_key:
             gpg_env = OpenPGPEnvironment()
             try:
                 gpg_env.import_key(gpg_verify_key)
-                data = gpg_env.verify_file(buildinfo_file)
+                data = gpg_env.verify_file(self.buildinfo_file)
                 logger.info(
                     "GPG ({}): OK".format(data.primary_key_fingerprint))
             except OpenPGPException as e:
@@ -214,10 +214,7 @@ class Rebuilder:
             finally:
                 gpg_env.close()
 
-        self.buildinfo = BuildInfo(buildinfo_file)
-        if buildinfo_file.startswith(
-                os.path.join(self.tmpdir, 'buildinfo-')):
-            os.remove(buildinfo_file)
+        self.buildinfo = BuildInfo(self.buildinfo_file)
 
     def get_env(self):
         env = []
@@ -233,21 +230,22 @@ class Rebuilder:
             # WIP: forge a better response?
             resp = requests.models.Response()
             resp.status_code = 503
+            resp.reason = str(e)
         return resp
 
     def get_sources_list(self):
         sources_list = []
         dist = self.buildinfo.get_debian_suite()
 
-        build_url = f"{self.base_mirror}/{self.buildinfo.build_date}"
+        build_url = f"{self.base_mirror}/{self.get_src_date()}"
         release_url = f"{build_url}/dists/{dist}/Release"
         resp = self.get_response(release_url)
         if not resp.ok:
             logger.error(f"Cannot fetch {dist} Release file: {release_url}")
             dist = "unstable"
 
-        build_repo = f"deb {self.base_mirror}/{self.buildinfo.build_date} {dist} main"
-        source_repo = f"deb-src {self.base_mirror}/{self.source_date} unstable main"
+        build_repo = f"deb {self.base_mirror}/{self.get_src_date()} {dist} main"
+        source_repo = f"deb-src {self.base_mirror}/{self.get_src_date()} unstable main"
 
         sources_list.append(build_repo)
         sources_list.append(source_repo)
@@ -386,20 +384,22 @@ class Rebuilder:
         return package.first_seen
 
     def find_build_dependencies_from_metasnap(self):
-        import urllib.parse
-        pkgs = [pkg.to_apt_install_format()
-                for pkg in self.buildinfo.get_build_depends()[:]]
-        pkgs = urllib.parse.quote_plus(",".join(pkgs))
-        url = f'https://metasnap.debian.net/cgi-bin/' \
-              f'api?archive=debian' \
-              f'&pkgs={pkgs}' \
-              f'&arch={self.buildinfo.build_arch}' \
-              f'&suite=unstable' \
-              f'&comp=main'
+        # import urllib.parse
+        # pkgs = [pkg.to_apt_install_format()
+        #         for pkg in self.buildinfo.get_build_depends()[:]]
+        # pkgs = urllib.parse.quote_plus(",".join(pkgs))
+        # url = f'https://metasnap.debian.net/cgi-bin/' \
+        #       f'api?archive=debian' \
+        #       f'&pkgs={pkgs}' \
+        #       f'&arch={self.buildinfo.build_arch}' \
+        #       f'&suite=unstable' \
+        #       f'&comp=main'
+        # resp = self.get_response(url)
 
-        resp = self.get_response(url)
+        files = {'buildinfo': open(self.buildinfo_file, 'rb')}
+        resp = self.session.post("https://metasnap.debian.net/cgi-bin/api", files=files)
         if not resp.ok:
-            logger.error(f"Cannot get timestamps from metasnap: {url}")
+            logger.error(f"Cannot get timestamps from metasnap: {resp.status_code}: {resp.reason}")
             return
 
         # latest first
@@ -517,10 +517,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         # like "apt" will not be removed due to downgrade process
         if self.buildinfo.get_debian_suite() != "sid":
             basemirror = self.required_timestamp_sources[-1]
-            basemirror = basemirror.replace(
-                'unstable', self.buildinfo.get_debian_suite())
+            basemirror = basemirror.replace('unstable', self.buildinfo.get_debian_suite())
         else:
-            basemirror = f'deb {self.base_mirror}/{self.buildinfo.build_date}/ unstable main'
+            basemirror = f'deb {self.base_mirror}/{self.get_src_date()}/ unstable main'
 
         return basemirror
 
@@ -744,7 +743,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
-            self.get_src_date()
             if self.use_metasnap:
                 logger.debug("Use metasnap for getting required timestamps")
                 self.find_build_dependencies_from_metasnap()
@@ -762,6 +760,9 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 if self.tempaptcache:
                     self.tempaptcache.close()
                 shutil.rmtree(self.tempaptdir)
+            if self.buildinfo_file.startswith(
+                    os.path.join(self.tmpdir, 'buildinfo-')):
+                os.remove(self.buildinfo_file)
 
         # Stage 2: Run the actual rebuild of provided buildinfo file
         if builder == "none":
@@ -799,6 +800,11 @@ def get_args():
         "--query-url",
         help="API url for querying package and binary information "
              "(default: http://snapshot.debian.org)",
+        default="http://snapshot.debian.org"
+    )
+    parser.add_argument(
+        "--snapshot-mirror",
+        help="Snapshot mirror to use (default: http://snapshot.debian.org)",
         default="http://snapshot.debian.org"
     )
     parser.add_argument(
@@ -893,6 +899,7 @@ def main():
         rebuilder = Rebuilder(
             buildinfo_file=args.buildinfo,
             snapshot_url=args.query_url,
+            snapshot_mirror=args.snapshot_mirror,
             extra_repository_files=args.extra_repository_file,
             extra_repository_keys=args.extra_repository_key,
             gpg_sign_keyid=args.gpg_sign_keyid,
