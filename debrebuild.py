@@ -64,7 +64,7 @@ class Package:
         self.name = name
         self.version = version
         self.architecture = architecture
-        self.first_seen = None
+        self.timestamp = None
         self.hash = None
 
     def to_index_format(self):
@@ -271,10 +271,10 @@ class Rebuilder:
         """
         required_timestamps = {}
         for pkg in self.buildinfo.get_build_depends():
-            if not pkg.first_seen:
+            if not pkg.timestamp:
                 self.get_bin_date(pkg)
             required_timestamps.setdefault(
-                parsedate(pkg.first_seen).strftime("%Y%m%dT%H%M%SZ"), []).append(pkg)
+                parsedate(pkg.timestamp).strftime("%Y%m%dT%H%M%SZ"), []).append(pkg)
         # sort by the number of packages found there, convert to list of tuples
         required_timestamps = sorted(required_timestamps.items(),
                 key=lambda x: len(x[1]), reverse=True)
@@ -323,7 +323,6 @@ class Rebuilder:
         if not package_from_main:
             raise RebuilderException(
                 "No package with the right hash in Debian official")
-
         self.source_date = package_from_main[0]['first_seen']
         return self.source_date
 
@@ -379,9 +378,9 @@ class Rebuilder:
         if not package_from_main:
             raise RebuilderException(
                 "No package with the right hash in Debian official")
-        package.first_seen = package_from_main[0]['first_seen']
+        package.timestamp = package_from_main[0]['first_seen']
         package.hash = pkghash
-        return package.first_seen
+        return package.timestamp
 
     def find_build_dependencies_from_metasnap(self):
         # import urllib.parse
