@@ -136,7 +136,7 @@ class BuildInfo:
             self.logentry += '\n\n'
 
         self.build_depends = []
-        self.required_timestamps = []
+        self.required_timestamps = {}
         self.archive_name = None
         self.source_date = None
 
@@ -259,9 +259,9 @@ class Rebuilder:
                 # if val['archive_name'] == 'debian' and val['name'].endswith('.dsc'):
                 if val['name'].endswith('.dsc'):
                     package_from_main.append(val)
-        if len(package_from_main) > 1:
-            raise RebuilderException(
-                "More than one package with the same hash in Debian official")
+        # if len(package_from_main) > 1:
+        #     raise RebuilderException(
+        #         "More than one package with the same hash in Debian official")
         if not package_from_main:
             raise RebuilderException(
                 "No package with the right hash in Debian official")
@@ -315,9 +315,9 @@ class Rebuilder:
 
         # package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if pkg['archive_name'] == 'debian']
         package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, [])]
-        if len(package_from_main) > 1:
-            raise RebuilderException(
-                "More than one package with the same hash in Debian official")
+        # if len(package_from_main) > 1:
+        #     raise RebuilderException(
+        #         "More than one package with the same hash in Debian official")
         if not package_from_main:
             raise RebuilderException(
                 "No package with the right hash in Debian official")
@@ -352,7 +352,7 @@ class Rebuilder:
             source_release_url = f"{build_url}/dists/{d}/main/source/Release"
             resp = self.get_response(source_release_url)
             if not resp.ok:
-                logger.error(f"Cannot fetch {dist} Release file: {source_release_url}")
+                logger.error(f"Cannot fetch {d} Release file: {source_release_url}")
                 continue
             source_repo = f"deb-src {build_url}/ {d} main"
             sources_list.append(source_repo)
@@ -396,6 +396,9 @@ class Rebuilder:
             self.required_timestamp_sources.setdefault("debian", []).append(
                 f"deb {self.base_mirror}/debian/{timestamp}/ unstable main")
 
+            # We store timestamp value itself for the base mirror used for creating chroot
+            self.buildinfo.required_timestamps.setdefault("debian", []).append(timestamp)
+
     def get_build_depends_timestamps(self):
         """
             Returns a dict with keys Debian archives and
@@ -406,8 +409,11 @@ class Rebuilder:
         for pkg in self.buildinfo.get_build_depends():
             if not pkg.timestamp:
                 self.get_bin_date(pkg)
-            required_timestamps.setdefault(pkg.archive_name, {}).setdefault(
-                parsedate(pkg.timestamp).strftime("%Y%m%dT%H%M%SZ"), []).append(pkg)
+            timestamp = parsedate(pkg.timestamp).strftime("%Y%m%dT%H%M%SZ")
+            required_timestamps.setdefault(pkg.archive_name, {}).setdefault(timestamp, []).append(pkg)
+
+            # We store timestamp value itself for the base mirror used for creating chroot
+            self.buildinfo.required_timestamps.setdefault(pkg.archive_name, []).append(timestamp)
 
         archive_required_timestamps = {}
         for archive, timestamps in required_timestamps.items():
@@ -427,13 +433,17 @@ class Rebuilder:
                 sources_list.setdefault(archive, []).append(
                     (f"deb {self.base_mirror}/{archive}/{timestamp}/ unstable main", pkgs)
                 )
+                if self.buildinfo.get_debian_suite() != "sid":
+                    sources_list.setdefault(archive, []).append(
+                        (f"deb {self.base_mirror}/{archive}/{timestamp}/ {self.buildinfo.get_debian_suite()} main", pkgs)
+                    )
         return sources_list
 
     def find_build_dependencies(self):
         # Prepare APT cache for finding dependencies
         self.prepare_aptcache()
 
-        notfound_packages = self.buildinfo.get_build_depends()[:]
+        notfound_packages = self.buildinfo.get_build_depends().copy()
         temp_sources_list = self.tempaptdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
             for archive, repositories in self.get_sources_list_from_timestamp().items():
@@ -443,10 +453,9 @@ class Rebuilder:
                     if not any(pkg in notfound_packages for pkg in pkgs):
                         logger.info("Skipping snapshot: {}".format(timestamp_source))
                         continue
-                    logger.info("Remaining packages to be found: {}".format(
-                        len(notfound_packages)))
+                    logger.info(f"Remaining packages to be found: {len(notfound_packages)}")
                     self.required_timestamp_sources.setdefault(archive, []).append(timestamp_source)
-                    logger.debug("Timestamp source ({} packages): {}".format(len(pkgs), timestamp_source))
+                    logger.debug(f"Timestamp source ({len(pkgs)} packages): {timestamp_source}")
                     fd.write("\n{}".format(timestamp_source))
                     fd.flush()
 
@@ -455,19 +464,17 @@ class Rebuilder:
                     self.tempaptcache.update(sources_list=temp_sources_list)
                     self.tempaptcache.open()
 
-                    for notfound_pkg in notfound_packages[:]:
-                        pkg = self.tempaptcache.get("{}:{}".format(
-                            notfound_pkg.name, notfound_pkg.architecture))
-                        if pkg and pkg.versions.get(notfound_pkg.version):
+                    for notfound_pkg in notfound_packages.copy():
+                        pkg = self.tempaptcache.get(f"{notfound_pkg.name}:{notfound_pkg.architecture}")
+                        if pkg is not None and pkg.versions.get(notfound_pkg.version) is not None:
                             notfound_packages.remove(notfound_pkg)
 
                     self.tempaptcache.close()
 
         if notfound_packages:
             for notfound_pkg in notfound_packages:
-                logger.debug(notfound_pkg.name)
-            raise RebuilderException("Cannot locate the following packages via "
-                                     "snapshots or the current repo/mirror")
+                logger.debug(f"{notfound_pkg.name}-{notfound_pkg.version}.{notfound_pkg.architecture}")
+            raise RebuilderException("Cannot locate the following packages via snapshots or the current repo/mirror")
 
     def prepare_aptcache(self):
         self.tempaptdir = tempfile.mkdtemp(
@@ -534,14 +541,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
     def get_chroot_basemirror(self):
         # We select the oldest required snapshot to ensure that essential packages
         # like "apt" will not be removed due to downgrade process
+        sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian"])
+        basemirror = f"deb {self.base_mirror}/debian/{sorted_timestamp_sources[0]} unstable main"
         if self.buildinfo.get_debian_suite() != "sid":
-            basemirror = self.required_timestamp_sources["debian"][-1]
             basemirror = basemirror.replace('unstable', self.buildinfo.get_debian_suite())
-        else:
-            archive_name, source_date = self.get_src_date()
-            build_url = f"{self.base_mirror}/{archive_name}/{source_date}"
-            basemirror = f'deb {build_url}/ unstable main'
-
         return basemirror
 
     def has_build_essential_dependency(self):
