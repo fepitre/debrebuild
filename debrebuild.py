@@ -334,17 +334,28 @@ class Rebuilder:
         dist = self.buildinfo.get_debian_suite()
         archive_name, source_date = self.get_src_date()
         build_url = f"{self.base_mirror}/{archive_name}/{source_date}"
+
+        # Add deb repository
         release_url = f"{build_url}/dists/{dist}/Release"
         resp = self.get_response(release_url)
         if not resp.ok:
             logger.error(f"Cannot fetch {dist} Release file: {release_url}")
             dist = "unstable"
-
         build_repo = f"deb {build_url}/ {dist} main"
-        source_repo = f"deb-src {build_url}/ unstable main"
-
         sources_list.append(build_repo)
-        sources_list.append(source_repo)
+
+        # Add deb-src repository
+        # WIP: we build for a given suite and it looks like some source dist
+        # repo does not have the corresponding files. We add unstable too.
+        # The reverse is true for unstable which does not exist (yet) for Qubes.
+        for d in [dist, "unstable"]:
+            source_release_url = f"{build_url}/dists/{d}/main/source/Release"
+            resp = self.get_response(source_release_url)
+            if not resp.ok:
+                logger.error(f"Cannot fetch {dist} Release file: {source_release_url}")
+                continue
+            source_repo = f"deb-src {build_url}/ {d} main"
+            sources_list.append(source_repo)
 
         if self.extra_repository_files:
             for repo_file in self.extra_repository_files:
