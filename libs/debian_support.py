@@ -536,6 +536,12 @@ class PseudoEnum:
 
 
 class Release(PseudoEnum):
+    """
+    Debian release defined with respect to its name, order of release
+    and version. The latter can be empty in case of 'sid'.
+
+    See https://www.debian.org/releases/
+    """
     releases = {}    # type: Dict[str, Release]
 
     def __init__(self,
@@ -549,10 +555,13 @@ class Release(PseudoEnum):
 
 def list_releases():
     # type: () -> Dict[str, Release]
+    """
+     Returns dict of Debian releases
+    """
     releases = {}
-    rels = (("buzz", ""),
-            ("rex", ""),
-            ("bo", ""),
+    rels = (("buzz", "1.1"),
+            ("rex", "1.2"),
+            ("bo", "1.3"),
             ("hamm", "2.0"),
             ("slink", "2.1"),
             ("potato", "2.2"),
@@ -567,6 +576,7 @@ def list_releases():
             ("buster", "10"),
             ("bullseye", "11"),
             ("bookworm", "12"),
+            ("trixie", "13"),
             ("sid", ""))
     for idx, rel in enumerate(rels):
         name, version = rel

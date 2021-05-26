@@ -443,6 +443,11 @@ class OrderedSet(object):
         # Return an iterator of items in the order they were added
         return iter(self.__order)
 
+    def __reversed__(self):
+        # type: () -> Iterator[str]
+        # Return an iterator of items in the opposite order they were added
+        return iter(reversed(self.__order))
+
     def __len__(self):
         # type: () -> int
         return len(self.__order)
@@ -2025,7 +2030,7 @@ class BuildInfo(_gpg_multivalued, _PkgRelationMixin, _VersionAccessorMixin):
         >>> changelog = info.get_changelog()
         >>> print(changelog.author)
         'xyz Build Daemon (xyz-01) <buildd_xyz-01@buildd.debian.org>'
-        >>> print(changlog[0].changes())
+        >>> print(changelog[0].changes())
         ['',
         '  * Binary-only non-maintainer upload for amd64; no source changes.',
         '  * Add Python 3.9 as supported version',
@@ -2049,7 +2054,7 @@ class BuildInfo(_gpg_multivalued, _PkgRelationMixin, _VersionAccessorMixin):
     def _get_array_value(self, field):
         # type: (str) -> Optional[List[str]]
         if field not in self:
-            raise ValueError("'{}' not found in buildinfo".format(field))
+            raise KeyError("'{}' not found in buildinfo".format(field))
         return list(self[field].replace('\n', '').strip().split())
 
     def get_environment(self):
@@ -2085,7 +2090,7 @@ class BuildInfo(_gpg_multivalued, _PkgRelationMixin, _VersionAccessorMixin):
     def get_source(self):
         # type: () -> Tuple[str, str]
         if 'source' not in self:
-            raise ValueError("'Source' field not found in buildinfo")
+            raise KeyError("'Source' field not found in buildinfo")
         matches = self._explicit_source_re.match(self['source'])
         if not matches:
             raise ValueError("Invalid 'Source' field specified")
@@ -2097,6 +2102,13 @@ class BuildInfo(_gpg_multivalued, _PkgRelationMixin, _VersionAccessorMixin):
 
     def get_debian_suite(self):
         # type: () -> str
+        """Returns the Debian suite suited for debootstraping the build
+        environment as described by the .buildinfo file.
+        (For *re*building we cannot base upon packages from sid as else
+        we might be forced to downgrades which are not supported.)
+        This is then used by rebuilders usage of debootstrap for
+        rebuilding the underling packages.
+        """
         debian_suite = 'sid'
         for pkg in self.relations['installed-build-depends']:  # type: ignore
             if pkg[0]['name'] == "base-files":
@@ -2114,7 +2126,7 @@ class BuildInfo(_gpg_multivalued, _PkgRelationMixin, _VersionAccessorMixin):
     def get_build_date(self):
         # type: () -> datetime.datetime
         if 'build-date' not in self:
-            raise ValueError("'Build-Date' field not found in buildinfo")
+            raise KeyError("'Build-Date' field not found in buildinfo")
         timearray = email.utils.parsedate_tz(self['build-date'])
         if timearray is None:
             raise ValueError("Invalid 'Build-Date' field specified")
