@@ -542,10 +542,16 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         # We select the oldest required snapshot to ensure that essential packages
         # like "apt" will not be removed due to downgrade process
         sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian"])
-        basemirror = f"deb {self.base_mirror}/debian/{sorted_timestamp_sources[0]} unstable main"
-        if self.buildinfo.get_debian_suite() != "sid":
-            basemirror = basemirror.replace('unstable', self.buildinfo.get_debian_suite())
-        return basemirror
+        for ts in sorted_timestamp_sources:
+            url = f"{self.base_mirror}/debian/{ts}"
+            basemirror = f"deb {url} unstable main"
+            if self.buildinfo.get_debian_suite() != "sid":
+                basemirror = basemirror.replace('unstable', self.buildinfo.get_debian_suite())
+            release_url = f"{url}/dists/{self.buildinfo.get_debian_suite()}/Release"
+            resp = self.get_response(release_url)
+            if resp.ok:
+                return basemirror
+        raise RebuilderException("Cannot determine base mirror to use")
 
     def has_build_essential_dependency(self):
         has_build_essential = False
