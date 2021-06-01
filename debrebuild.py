@@ -381,10 +381,20 @@ class Rebuilder:
         return sources_list
 
     def find_build_dependencies_from_metasnap(self):
+        status = False
         files = {'buildinfo': open(self.buildinfo_file, 'rb')}
-        resp = self.session.post("https://metasnap.debian.net/cgi-bin/api", files=files)
-        if not resp.ok:
-            logger.error(f"Cannot get timestamps from metasnap: {resp.status_code}: {resp.reason}")
+        try:
+            resp = self.session.post("https://metasnap.debian.net/cgi-bin/api", files=files)
+            if not resp.ok:
+                msg = f"{resp.status_code} ({resp.reason})"
+            else:
+                status = True
+        except requests.exceptions.ConnectionError as e:
+            msg = str(e)
+            pass
+
+        if not status:
+            logger.error(f"Cannot get timestamps from metasnap: {msg}")
             return
 
         # latest first
