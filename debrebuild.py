@@ -71,16 +71,15 @@ class Package:
 
     def to_index_format(self):
         if self.architecture:
-            result = "{} {} {}".format(
-                self.name, self.version, self.architecture)
+            result = f"{self.name} {self.version} {self.architecture}"
         else:
-            result = "{} {}".format(self.name, self.version)
+            result = f"{self.name} {self.version}"
         return result
 
     def to_apt_install_format(self, build_arch=None):
-        result = "{}={}".format(self.name, self.version)
+        result = f"{self.name}={self.version}"
         if build_arch and self.architecture in ("all", build_arch):
-            result = "{}:{}={}".format(self.name, self.architecture, self.version)
+            result = f"{self.name}:{self.architecture}={self.version}"
         return result
 
     def __repr__(self):
@@ -91,8 +90,7 @@ class BuildInfo:
     def __init__(self, buildinfo_file):
 
         if not os.path.exists(buildinfo_file):
-            raise BuildInfoException(
-                "Cannot find buildinfo file: {}".format(buildinfo_file))
+            raise BuildInfoException(f"Cannot find buildinfo file: {buildinfo_file}")
 
         with open(buildinfo_file) as fd:
             self.parsed_info = debian.deb822.BuildInfo(fd)
@@ -124,8 +122,8 @@ class BuildInfo:
 
         self.checksums = {}
         for alg in ('md5', 'sha1', 'sha256', 'sha512'):
-            if self.parsed_info.get('checksums-{}'.format(alg), None):
-                self.checksums[alg] = self.parsed_info['checksums-{}'.format(alg)]
+            if self.parsed_info.get(f'checksums-{alg}', None):
+                self.checksums[alg] = self.parsed_info[f'checksums-{alg}']
 
         self.logentry = self.parsed_info.get_changelog()
         if self.logentry:
@@ -165,8 +163,7 @@ class BuildInfo:
 
     def get_build_path(self):
         if not self.build_path:
-            self.build_path = "/build/{}-{}".format(
-                self.source, rstr.letters(10))
+            self.build_path = f"/build/{self.source}-{rstr.letters(10)}"
         self.build_path = self.build_path.replace('~', '-')
         return self.build_path
 
@@ -228,11 +225,9 @@ class Rebuilder:
             try:
                 gpg_env.import_key(gpg_verify_key)
                 data = gpg_env.verify_file(self.buildinfo_file)
-                logger.info(
-                    "GPG ({}): OK".format(data.primary_key_fingerprint))
+                logger.info(f"GPG ({data.primary_key_fingerprint}): OK")
             except OpenPGPException as e:
-                raise RebuilderException(
-                    "Failed to verify buildinfo: {}".format(str(e)))
+                raise RebuilderException(f"Failed to verify buildinfo: {str(e)}")
             finally:
                 gpg_env.close()
 
@@ -241,7 +236,7 @@ class Rebuilder:
     def get_env(self):
         env = []
         for key, val in self.buildinfo.env.items():
-            env.append("{}=\"{}\"".format(key, val))
+            env.append(f"{key}=\"{val}\"")
         return env
 
     def get_response(self, url):
@@ -260,18 +255,14 @@ class Rebuilder:
             return self.buildinfo.archive_name, self.buildinfo.source_date
         srcpkgname = self.buildinfo.source
         srcpkgver = self.buildinfo.source_version
-        logger.debug("Get source package info: {}={}".format(
-            srcpkgname, srcpkgver))
-        json_url = "/mr/package/{}/{}/srcfiles?fileinfo=1".format(
-            srcpkgname, srcpkgver)
-        json_url = self.snapshot_url + json_url
+        logger.debug(f"Get source package info: {srcpkgname}={srcpkgver}")
+        json_url = f"{self.snapshot_url}/mr/package/{srcpkgname}/{srcpkgver}/srcfiles?fileinfo=1"
         resp = self.get_response(json_url)
-        logger.debug("Source URL: {}".format(json_url))
+        logger.debug(f"Source URL: {json_url}")
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
-            raise RebuilderException(
-                f"Cannot parse response for source: {self.buildinfo.source}")
+            raise RebuilderException(f"Cannot parse response for source: {self.buildinfo.source}")
 
         package_from_main = []
         for result in data.get('result', []):
@@ -293,33 +284,27 @@ class Rebuilder:
         pkgname = package.name
         pkgver = package.version
         pkgarch = package.architecture
-        logger.debug("Get binary package info: {}={}".format(
-            pkgname, pkgver))
-        json_url = "/mr/binary/{}/{}/binfiles?fileinfo=1".format(
-            pkgname, pkgver)
-        json_url = self.snapshot_url + json_url
+        logger.debug(f"Get binary package info: {pkgname}={pkgver}")
+        json_url = f"{self.snapshot_url}/mr/binary/{pkgname}/{pkgver}/binfiles?fileinfo=1"
         resp = self.get_response(json_url)
-        logger.debug("Binary URL: {}".format(json_url))
+        logger.debug(f"Binary URL: {json_url}")
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
-            raise RebuilderException(
-                f"Cannot parse response for package: {package.name}")
+            raise RebuilderException(f"Cannot parse response for package: {package.name}")
 
         pkghash = None
         if len(data.get('result', [])) == 1:
             pkghash = data['result'][0]['hash']
             package.architecture = data['result'][0]['architecture']
             if pkgarch and pkgarch != package.architecture:
-                raise RebuilderException(
-                    "Package {} was explicitly requested {} but only {} was "
-                    "found".format(pkgname, pkgarch, package.architecture))
+                raise RebuilderException(f"Package {pkgname} was explicitly requested "
+                                         f"{pkgarch} but only {package.architecture} was found")
             if not pkgarch and self.buildinfo.build_arch != package.architecture and \
                     "all" != package.architecture:
-                raise RebuilderException(
-                    f"Package {pkgname} was implicitly requested "
-                    f"{self.buildinfo.build_arch} but only "
-                    f"{package.architecture} was found")
+                raise RebuilderException(f"Package {pkgname} was implicitly requested "
+                                         f"{self.buildinfo.build_arch} but only "
+                                         f"{package.architecture} was found")
             pkgarch = package.architecture
         else:
             if not pkgarch:
@@ -329,8 +314,7 @@ class Rebuilder:
                     pkghash = result['hash']
                     break
             if not pkghash:
-                raise RebuilderException(
-                    f"Cannot find package in architecture {pkgarch}")
+                raise RebuilderException(f"Cannot find package in architecture {pkgarch}")
             package.architecture = pkgarch
 
         # package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if pkg['archive_name'] == 'debian']
@@ -339,8 +323,7 @@ class Rebuilder:
         #     raise RebuilderException(
         #         "More than one package with the same hash in Debian official")
         if not package_from_main:
-            raise RebuilderException(
-                "No package with the right hash in Debian official")
+            raise RebuilderException("No package with the right hash in Debian official")
         package.archive_name = package_from_main[0]['archive_name']
         package.timestamp = package_from_main[0]['first_seen']
         package.hash = pkghash
@@ -386,8 +369,7 @@ class Rebuilder:
                                     not line.startswith('\n'):
                                 sources_list.append(line.rstrip('\n'))
                 except FileNotFoundError:
-                    raise RebuilderException(
-                        "Cannot find repository file: {}".format(repo_file))
+                    raise RebuilderException(f"Cannot find repository file: {repo_file}")
 
         return sources_list
 
@@ -481,12 +463,12 @@ class Rebuilder:
                     if not notfound_packages:
                         break
                     if not any(pkg in notfound_packages for pkg in pkgs):
-                        logger.info("Skipping snapshot: {}".format(timestamp_source))
+                        logger.info(f"Skipping snapshot: {timestamp_source}")
                         continue
                     logger.info(f"Remaining packages to be found: {len(notfound_packages)}")
                     self.required_timestamp_sources.setdefault(archive, []).append(timestamp_source)
                     logger.debug(f"Timestamp source ({len(pkgs)} packages): {timestamp_source}")
-                    fd.write("\n{}".format(timestamp_source))
+                    fd.write(f"\n{timestamp_source}")
                     fd.flush()
 
                     # provides sources.list explicitly, otherwise `update()`
@@ -504,22 +486,23 @@ class Rebuilder:
         if notfound_packages:
             for notfound_pkg in notfound_packages:
                 logger.debug(f"{notfound_pkg.name}-{notfound_pkg.version}.{notfound_pkg.architecture}")
-            raise RebuilderException("Cannot locate the following packages via snapshots or the current repo/mirror")
+            raise RebuilderException("Cannot locate the following packages via "
+                                     "snapshots or the current repo/mirror")
 
     def prepare_aptcache(self):
         self.tempaptdir = tempfile.mkdtemp(
             prefix="debrebuild-", dir=self.tmpdir)
 
         # Create apt.conf
-        temp_apt_conf = "{}/etc/apt/apt.conf".format(self.tempaptdir)
+        temp_apt_conf = f"{self.tempaptdir}/etc/apt/apt.conf"
         # Create sources.list
-        temp_sources_list = "{}/etc/apt/sources.list".format(self.tempaptdir)
+        temp_sources_list = f"{self.tempaptdir}/etc/apt/sources.list"
 
         apt_dirs = [
             '/etc/apt', '/etc/apt/trusted.gpg.d'
         ]
         for directory in apt_dirs:
-            os.makedirs("{}/{}".format(self.tempaptdir, directory))
+            os.makedirs(f"{self.tempaptdir}/{directory}")
 
         with open(temp_apt_conf, "w") as fd:
             apt_conf = """
@@ -536,7 +519,7 @@ Acquire::Retries "5";
 Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 """.format(build_arch=self.buildinfo.build_arch, tempdir=self.tempaptdir)
             if self.proxy:
-                apt_conf += '\nAcquire::http::proxy "{}";\n'.format(self.proxy)
+                apt_conf += f'\nAcquire::http::proxy "{self.proxy}";\n'
             fd.write(apt_conf)
 
         with open(temp_sources_list, "w") as fd:
@@ -549,8 +532,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if self.extra_repository_keys:
             keyrings += self.extra_repository_keys
         for keyring_src in keyrings:
-            keyring_dst = "{}/etc/apt/trusted.gpg.d/{}".format(
-                self.tempaptdir, os.path.basename(keyring_src))
+            keyring_dst = f"{self.tempaptdir}/etc/apt/trusted.gpg.d/{os.path.basename(keyring_src)}"
             os.symlink(keyring_src, keyring_dst)
 
         # Init temporary APT cache
@@ -714,8 +696,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             new_files = [f for f in new_checksums if not f['name'].endswith('.dsc')]
 
             if len(files) != len(new_files):
-                logger.debug("old buildinfo: {}".format(' '.join(files)))
-                logger.debug("new buildinfo: {}".format(' '.join(new_files)))
+                logger.debug(f"old buildinfo: {' '.join(files)}")
+                logger.debug(f"new buildinfo: {' '.join(new_files)}")
                 raise RebuilderException(
                     f"New buildinfo contains a different number of files in {alg} checksums.")
 
@@ -742,7 +724,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                         logger.error(f"Value of {prop} differs for {f['name']}")
                         cur_status = False
                 if cur_status:
-                    logger.info("{}: OK".format(f['name']))
+                    logger.info(f"{f['name']}: OK")
                 else:
                     status = False
 
@@ -796,7 +778,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         else:
             raise RebuilderException("Nothing to build")
         new_buildinfo_file = f"{output}/{self.buildinfo.source}_{self.buildinfo.version}_{build_arch}.buildinfo"
-        logger.debug("New buildinfo file: {}".format(new_buildinfo_file))
+        logger.debug(f"New buildinfo file: {new_buildinfo_file}")
         if os.path.exists(new_buildinfo_file):
             raise RebuilderException(
                 "Refusing to overwrite existing buildinfo file")
@@ -932,7 +914,7 @@ def main():
         logger.setLevel(logging.ERROR)
 
     if args.builder not in ("none", "mmdebstrap"):
-        logger.error("Unknown builder: {}".format(args.builder))
+        logger.error(f"Unknown builder: {args.builder}")
         return 1
 
     if args.gpg_verify_key:
