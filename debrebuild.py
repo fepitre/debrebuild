@@ -27,7 +27,8 @@ import argparse
 import logging
 import apt
 import apt_pkg
-import libs.deb822
+import debian.deb822
+import debian.debian_support
 import rstr
 
 from dateutil.parser import parse as parsedate
@@ -94,7 +95,7 @@ class BuildInfo:
                 "Cannot find buildinfo file: {}".format(buildinfo_file))
 
         with open(buildinfo_file) as fd:
-            self.parsed_info = libs.deb822.BuildInfo(fd)
+            self.parsed_info = debian.deb822.BuildInfo(fd)
 
         # in case of binnmu we have e.g.
         #   Source: 0ad (0.0.23-1)
@@ -141,7 +142,26 @@ class BuildInfo:
         self.source_date = None
 
     def get_debian_suite(self):
-        return self.parsed_info.get_debian_suite()
+        """Returns the Debian suite suited for debootstraping the build
+        environment as described by the .buildinfo file.
+        (For *re*building we cannot base upon packages from sid as else
+        we might be forced to downgrades which are not supported.)
+        This is then used by rebuilders usage of debootstrap for
+        rebuilding the underling packages.
+        """
+        debian_suite = 'sid'
+        for pkg in self.parsed_info.relations['installed-build-depends']:
+            if pkg[0]['name'] == "base-files":
+                _, version = pkg[0]['version']
+                try:
+                    version = str(int(float(version)))
+                except ValueError:
+                    break
+                for rel in debian.debian_support._release_list.values():
+                    if rel and rel.version == version:
+                        debian_suite = str(rel)
+                        break
+        return debian_suite
 
     def get_build_path(self):
         if not self.build_path:
