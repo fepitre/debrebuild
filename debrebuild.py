@@ -61,12 +61,14 @@ class RebuilderChecksumsError(Exception):
 
 
 class Package:
-    def __init__(self, name, version, architecture=None, archive_name="debian"):
+    def __init__(self, name, version, architecture=None, archive_name="debian", suite_name="unstable", component_name="main"):
         self.name = name
         self.version = version
         self.architecture = architecture
         self.archive_name = archive_name
         self.timestamp = None
+        self.suite_name = suite_name
+        self.component_name = component_name
         self.hash = None
 
     def to_index_format(self):
@@ -138,6 +140,8 @@ class BuildInfo:
         self.required_timestamps = {}
         self.archive_name = None
         self.source_date = None
+        self.suite_name = None
+        self.component_name = None
 
     def get_debian_suite(self):
         """Returns the Debian suite suited for debootstraping the build
@@ -250,44 +254,47 @@ class Rebuilder:
             resp.reason = str(e)
         return resp
 
+    # TODO: refactor get_src_date and get_bin_date. Do a better distinction between "BuildInfo"
+    #  and the source package which as to be defined.
     def get_src_date(self):
-        if self.buildinfo.archive_name and self.buildinfo.source_date:
-            return self.buildinfo.archive_name, self.buildinfo.source_date
+        if all([self.buildinfo.archive_name, self.buildinfo.source_date, self.buildinfo.suite_name, self.buildinfo.component_name]):
+            return self.buildinfo.archive_name, self.buildinfo.source_date, self.buildinfo.suite_name, self.buildinfo.component_name
         srcpkgname = self.buildinfo.source
         srcpkgver = self.buildinfo.source_version
-        logger.debug(f"Get source package info: {srcpkgname}={srcpkgver}")
         json_url = f"{self.snapshot_url}/mr/package/{srcpkgname}/{srcpkgver}/srcfiles?fileinfo=1"
-        resp = self.get_response(json_url)
+        logger.debug(f"Get source package info: {srcpkgname}={srcpkgver}")
         logger.debug(f"Source URL: {json_url}")
+        resp = self.get_response(json_url)
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
             raise RebuilderException(f"Cannot parse response for source: {self.buildinfo.source}")
 
-        package_from_main = []
-        for result in data.get('result', []):
-            for val in data.get('fileinfo', {}).get(result['hash']):
-                # if val['archive_name'] == 'debian' and val['name'].endswith('.dsc'):
-                if val['name'].endswith('.dsc'):
-                    package_from_main.append(val)
-        # if len(package_from_main) > 1:
-        #     raise RebuilderException(
-        #         "More than one package with the same hash in Debian official")
-        if not package_from_main:
-            raise RebuilderException(
-                "No package with the right hash in Debian official")
-        self.buildinfo.archive_name = package_from_main[0]['archive_name']
-        self.buildinfo.source_date = package_from_main[0]['first_seen']
-        return self.buildinfo.archive_name, self.buildinfo.source_date
+        source_info = None
+        for h in data.get('fileinfo', {}).values():
+            # We pick the first dsc found.
+            for f in h:
+                if f['name'].endswith('.dsc'):
+                    source_info = f
+                    break
+                if source_info:
+                    break
+        if not source_info:
+            raise RebuilderException(f"No source info found for {srcpkgname}-{srcpkgver}")
+        self.buildinfo.archive_name = source_info["archive_name"]
+        self.buildinfo.source_date = source_info["end_timestamp"]
+        self.buildinfo.suite_name = source_info["suite_name"]
+        self.buildinfo.component_name = source_info["component_name"]
+        return self.buildinfo.archive_name, self.buildinfo.source_date, self.buildinfo.suite_name, self.buildinfo.component_name
 
     def get_bin_date(self, package):
         pkgname = package.name
         pkgver = package.version
         pkgarch = package.architecture
-        logger.debug(f"Get binary package info: {pkgname}={pkgver}")
         json_url = f"{self.snapshot_url}/mr/binary/{pkgname}/{pkgver}/binfiles?fileinfo=1"
-        resp = self.get_response(json_url)
+        logger.debug(f"Get binary package info: {pkgname}={pkgver}")
         logger.debug(f"Binary URL: {json_url}")
+        resp = self.get_response(json_url)
         try:
             data = resp.json()
         except json.decoder.JSONDecodeError:
@@ -317,48 +324,40 @@ class Rebuilder:
                 raise RebuilderException(f"Cannot find package in architecture {pkgarch}")
             package.architecture = pkgarch
 
-        # package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, []) if pkg['archive_name'] == 'debian']
-        package_from_main = [pkg for pkg in data['fileinfo'].get(pkghash, [])]
-        # if len(package_from_main) > 1:
-        #     raise RebuilderException(
-        #         "More than one package with the same hash in Debian official")
-        if not package_from_main:
-            raise RebuilderException("No package with the right hash in Debian official")
-        package.archive_name = package_from_main[0]['archive_name']
-        package.timestamp = package_from_main[0]['first_seen']
+        binary_info = [pkg for pkg in data['fileinfo'].get(pkghash, [])]
+        if not binary_info:
+            raise RebuilderException(f"No binary info found for {pkgname}:{pkgarch}-{pkgver}")
         package.hash = pkghash
-        return package.archive_name, package.timestamp
+        package.archive_name = binary_info[0]["archive_name"]
+        package.timestamp = binary_info[0]["begin_timestamp"]
+        package.suite_name = binary_info[0]["suite_name"]
+        package.component_name = binary_info[0]["component_name"]
+        return package.archive_name, package.timestamp, package.suite_name, package.component_name
 
     def get_sources_list(self):
         """
-            Returns a list of all inline Debian repositories
+            Returns a list of all inline Debian repositories for to the package
+            to be rebuilt (not dependencies)
         """
         sources_list = []
-        dist = self.buildinfo.get_debian_suite()
-        archive_name, source_date = self.get_src_date()
+        archive_name, source_date, dist, component = self.get_src_date()
         build_url = f"{self.base_mirror}/{archive_name}/{source_date}"
 
         # Add deb repository
         release_url = f"{build_url}/dists/{dist}/Release"
         resp = self.get_response(release_url)
         if not resp.ok:
-            logger.error(f"Cannot fetch {dist} Release file: {release_url}")
-            dist = "unstable"
-        build_repo = f"deb {build_url}/ {dist} main"
+            RebuilderException(f"Cannot fetch {dist} Release file: {release_url}")
+        build_repo = f"deb {build_url}/ {dist} {component}"
         sources_list.append(build_repo)
 
         # Add deb-src repository
-        # WIP: we build for a given suite and it looks like some source dist
-        # repo does not have the corresponding files. We add unstable too.
-        # The reverse is true for unstable which does not exist (yet) for Qubes.
-        for d in [dist, "unstable"]:
-            source_release_url = f"{build_url}/dists/{d}/main/source/Release"
-            resp = self.get_response(source_release_url)
-            if not resp.ok:
-                logger.error(f"Cannot fetch {d} Release file: {source_release_url}")
-                continue
-            source_repo = f"deb-src {build_url}/ {d} main"
-            sources_list.append(source_repo)
+        source_release_url = f"{build_url}/dists/{dist}/main/source/Release"
+        resp = self.get_response(source_release_url)
+        if not resp.ok:
+            RebuilderException(f"Cannot fetch {dist} Release file: {source_release_url}")
+        source_repo = f"deb-src {build_url}/ {dist} main"
+        sources_list.append(source_repo)
 
         if self.extra_repository_files:
             for repo_file in self.extra_repository_files:
@@ -405,11 +404,11 @@ class Rebuilder:
             arch, timestamp = line.split()
             if arch != self.buildinfo.build_arch:
                 raise RebuilderException("Unable to handle multiple architectures")
-            self.required_timestamp_sources.setdefault("debian", []).append(
+            self.required_timestamp_sources.setdefault("debian+unstable+main", []).append(
                 f"deb {self.base_mirror}/debian/{timestamp}/ unstable main")
 
             # We store timestamp value itself for the base mirror used for creating chroot
-            self.buildinfo.required_timestamps.setdefault("debian", []).append(timestamp)
+            self.buildinfo.required_timestamps.setdefault("debian+unstable+main", []).append(timestamp)
 
     def get_build_depends_timestamps(self):
         """
@@ -422,51 +421,50 @@ class Rebuilder:
             if not pkg.timestamp:
                 self.get_bin_date(pkg)
             timestamp = parsedate(pkg.timestamp).strftime("%Y%m%dT%H%M%SZ")
-            required_timestamps.setdefault(pkg.archive_name, {}).setdefault(timestamp, []).append(pkg)
+            location = f"{pkg.archive_name}+{pkg.suite_name}+{pkg.component_name}"
+            required_timestamps.setdefault(location, {}).setdefault(timestamp, []).append(pkg)
 
             # We store timestamp value itself for the base mirror used for creating chroot
-            self.buildinfo.required_timestamps.setdefault(pkg.archive_name, []).append(timestamp)
+            self.buildinfo.required_timestamps.setdefault(location, []).append(timestamp)
 
-        archive_required_timestamps = {}
-        for archive, timestamps in required_timestamps.items():
+        location_required_timestamps = {}
+        for location, timestamps in required_timestamps.items():
             # sort by the number of packages found there, convert to list of tuples
             timestamps = sorted(timestamps.items(), key=lambda x: len(x[1]), reverse=True)
-            archive_required_timestamps[archive] = timestamps
-        return archive_required_timestamps
+            location_required_timestamps[location] = timestamps
+        return location_required_timestamps
 
     def get_sources_list_from_timestamp(self):
         """
-            Returns a dict with keys archives and
+            Returns a dict with keys archive+suite+component and
             values lists inline Debian repositories
         """
         sources_list = {}
-        for archive, timestamps in self.get_build_depends_timestamps().items():
+        for location, timestamps in self.get_build_depends_timestamps().items():
             for timestamp, pkgs in timestamps:
-                sources_list.setdefault(archive, []).append(
-                    (f"deb {self.base_mirror}/{archive}/{timestamp}/ unstable main", pkgs)
+                archive, suite, component = location.split('+', 3)
+                sources_list.setdefault(location, []).append(
+                    (f"deb {self.base_mirror}/{archive}/{timestamp}/ {suite} {component}", pkgs)
                 )
-                if self.buildinfo.get_debian_suite() != "sid":
-                    sources_list.setdefault(archive, []).append(
-                        (f"deb {self.base_mirror}/{archive}/{timestamp}/ {self.buildinfo.get_debian_suite()} main", pkgs)
-                    )
         return sources_list
 
     def find_build_dependencies(self):
         # Prepare APT cache for finding dependencies
         self.prepare_aptcache()
 
-        notfound_packages = self.buildinfo.get_build_depends().copy()
+        notfound_packages = [pkg for pkg in self.buildinfo.get_build_depends()]
         temp_sources_list = self.tempaptdir + '/etc/apt/sources.list'
         with open(temp_sources_list, "a") as fd:
-            for archive, repositories in self.get_sources_list_from_timestamp().items():
+            for location, repositories in self.get_sources_list_from_timestamp().items():
                 for timestamp_source, pkgs in repositories:
                     if not notfound_packages:
                         break
-                    if not any(pkg in notfound_packages for pkg in pkgs):
+                    if not any(pkg.to_apt_install_format() in [p.to_apt_install_format() for p in notfound_packages]
+                               for pkg in pkgs):
                         logger.info(f"Skipping snapshot: {timestamp_source}")
                         continue
                     logger.info(f"Remaining packages to be found: {len(notfound_packages)}")
-                    self.required_timestamp_sources.setdefault(archive, []).append(timestamp_source)
+                    self.required_timestamp_sources.setdefault(location, []).append(timestamp_source)
                     logger.debug(f"Timestamp source ({len(pkgs)} packages): {timestamp_source}")
                     fd.write(f"\n{timestamp_source}")
                     fd.flush()
@@ -553,13 +551,23 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
     def get_chroot_basemirror(self):
         # We select the oldest required snapshot to ensure that essential packages
         # like "apt" will not be removed due to downgrade process
-        sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian"])
-        for ts in sorted_timestamp_sources:
-            url = f"{self.base_mirror}/debian/{ts}"
-            basemirror = f"deb {url} unstable main"
-            if self.buildinfo.get_debian_suite() != "sid":
-                basemirror = basemirror.replace('unstable', self.buildinfo.get_debian_suite())
-            release_url = f"{url}/dists/{self.buildinfo.get_debian_suite()}/Release"
+        if self.buildinfo.required_timestamps.get(f"debian+{self.buildinfo.get_debian_suite()}+main", None):
+            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"])
+            archive_name = "debian"
+            suite_name = self.buildinfo.get_debian_suite()
+            component_name = "main"
+        elif self.buildinfo.required_timestamps.get("debian+unstable+main", None):
+            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"])
+            archive_name = "debian"
+            suite_name = "unstable"
+            component_name = "main"
+        else:
+            raise RebuilderException("Cannot determine base mirror to use")
+
+        for timestamp in sorted_timestamp_sources:
+            url = f"{self.base_mirror}/{archive_name}/{timestamp}"
+            basemirror = f"deb {url} {suite_name} {component_name}"
+            release_url = f"{url}/dists/{suite_name}/Release"
             resp = self.get_response(release_url)
             if resp.ok:
                 return basemirror
