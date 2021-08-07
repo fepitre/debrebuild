@@ -1,2 +1,5 @@
-requests
 python-apt
+python-debian >= 0.1.40
+python-dateutil
+requests
+rstr

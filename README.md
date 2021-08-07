@@ -43,9 +43,27 @@ optional arguments:
 
 Highly inspired from original Debian tool `debrebuild` https://salsa.debian.org/debian/devscripts and newer features from  https://salsa.debian.org/josch/devscripts/-/commits/debrebuild and https://salsa.debian.org/fepitre/devscripts/-/commits/debrebuild.
 
+
+#### INSTALLATION
+
+Currently `debrebuild` works under `bullseye` or `sid`. You can install the dependencies by using as `root`:
+```shell
+$ apt install -y mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-rstr
+```
+
+It requires notably `mmdebstrap >= 0.7.5` and `python3-debian >= 0.1.40`. The latter is still not available in `bullseye`.
+Until it would be available, you may use `PyPi` repository (ensure to `python3-pip` installed for `pip3` command).
+For system-wide installation use the following command as `root`:
+```shell
+$ pip3 install 'python-debian>=0.1.40'
+```
+
+You may skip `python3-debian` installation in the `apt` command in order to not have multiple `python-debian` versions
+installed.
+
 #### EXAMPLES
 
-```
+```shell
 $ ./debrebuild.py --output=./artifacts --builder=mmdebstrap tests/data/gzip_1.10-2_all-amd64-source.buildinfo
 ```
 
