@@ -52,7 +52,7 @@ $ apt install -y mmdebstrap in-toto python3-requests python3-apt python3-debian 
 ```
 
 It requires notably `mmdebstrap >= 0.7.5` and `python3-debian >= 0.1.40`. The latter is still not available in `bullseye`.
-Until it would be available, you may use `PyPi` repository (ensure to `python3-pip` installed for `pip3` command).
+Until it would be available, you may use `PyPi` repository (ensure to have `python3-pip` installed for `pip3` command).
 For system-wide installation use the following command as `root`:
 ```shell
 $ pip3 install 'python-debian>=0.1.40'
