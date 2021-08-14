@@ -614,11 +614,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--aptopt=Acquire::http::proxy "{}";'.format(self.proxy)
             ]
 
-        # Create builduser for running the build in mmdebstrap as builduser
-        cmd += [
-            '--essential-hook=chroot "$1" useradd --no-create-home -d /nonexistent -p "" builduser -s /bin/bash'
-        ]
-
         # Workaround for missing build-essential in buildinfo dependencies
         if not self.has_build_essential_dependency():
             cmd += [
@@ -650,6 +645,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                     'apt-get update'
                 ]
             ))
+        ]
+
+        # Create builduser for running the build in mmdebstrap as builduser
+        cmd += [
+            '--customize-hook=chroot "$1" useradd --no-create-home -d /nonexistent -p "" builduser -s /bin/bash'
         ]
 
         # In case of binNMU build, we add the changelog entry from buildinfo
