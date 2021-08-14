@@ -549,15 +549,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         return apt_build_depends
 
     def get_chroot_basemirror(self):
-        # We select the oldest required snapshot to ensure that essential packages
-        # like "apt" will not be removed due to downgrade process
         if self.buildinfo.required_timestamps.get(f"debian+{self.buildinfo.get_debian_suite()}+main", None):
-            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"])
+            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"], reverse=True)
             archive_name = "debian"
             suite_name = self.buildinfo.get_debian_suite()
             component_name = "main"
         elif self.buildinfo.required_timestamps.get("debian+unstable+main", None):
-            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"])
+            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"], reverse=True)
             archive_name = "debian"
             suite_name = "unstable"
             component_name = "main"
@@ -606,6 +604,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--aptopt=Acquire::http::Dl-Limit "1000";',
             '--aptopt=Acquire::https::Dl-Limit "1000";',
             '--aptopt=Acquire::Retries "5";',
+            '--aptopt=APT::Get::allow-downgrades "true";',
         ]
 
         # Support for proxy
