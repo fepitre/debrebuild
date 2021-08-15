@@ -549,18 +549,31 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         return apt_build_depends
 
     def get_chroot_basemirror(self):
-        if self.buildinfo.required_timestamps.get(f"debian+{self.buildinfo.get_debian_suite()}+main", None):
-            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"], reverse=True)
-            archive_name = "debian"
-            suite_name = self.buildinfo.get_debian_suite()
-            component_name = "main"
-        elif self.buildinfo.required_timestamps.get("debian+unstable+main", None):
-            sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"], reverse=True)
-            archive_name = "debian"
-            suite_name = "unstable"
-            component_name = "main"
+        build_essential = self.get_build_dependency("build-essential")
+        util_linux = self.get_build_dependency("util-linux")
+        if not self.use_metasnap and build_essential:
+            archive_name = build_essential.archive_name
+            suite_name = build_essential.suite_name
+            component_name = build_essential.component_name
+            sorted_timestamp_sources = [build_essential.timestamp]
+        elif not self.use_metasnap and util_linux:
+            archive_name = util_linux.archive_name
+            suite_name = util_linux.suite_name
+            component_name = util_linux.component_name
+            sorted_timestamp_sources = [util_linux.timestamp]
         else:
-            raise RebuilderException("Cannot determine base mirror to use")
+            if self.buildinfo.required_timestamps.get(f"debian+{self.buildinfo.get_debian_suite()}+main", None):
+                sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"])
+                archive_name = "debian"
+                suite_name = self.buildinfo.get_debian_suite()
+                component_name = "main"
+            elif self.buildinfo.required_timestamps.get("debian+unstable+main", None):
+                sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"])
+                archive_name = "debian"
+                suite_name = "unstable"
+                component_name = "main"
+            else:
+                raise RebuilderException("Cannot determine base mirror to use")
 
         for timestamp in sorted_timestamp_sources:
             url = f"{self.base_mirror}/{archive_name}/{timestamp}"
@@ -569,15 +582,16 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             resp = self.get_response(release_url)
             if resp.ok:
                 return basemirror
+
         raise RebuilderException("Cannot determine base mirror to use")
 
-    def has_build_essential_dependency(self):
-        has_build_essential = False
+    def get_build_dependency(self, name):
+        build_dependency = None
         for pkg in self.buildinfo.get_build_depends():
-            if pkg.name == "build-essential":
-                has_build_essential = True
+            if pkg.name == name:
+                build_dependency = pkg
                 break
-        return has_build_essential
+        return build_dependency
 
     def mmdebstrap(self, output):
         if self.buildinfo.build_archany and self.buildinfo.build_archall:
@@ -614,7 +628,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             ]
 
         # Workaround for missing build-essential in buildinfo dependencies
-        if not self.has_build_essential_dependency():
+        if not self.get_build_dependency("build-essential"):
             cmd += [
                 '--essential-hook=chroot "$1" sh -c "apt-get --yes install build-essential"'
             ]
