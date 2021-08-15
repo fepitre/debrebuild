@@ -282,7 +282,7 @@ class Rebuilder:
         if not source_info:
             raise RebuilderException(f"No source info found for {srcpkgname}-{srcpkgver}")
         self.buildinfo.archive_name = source_info["archive_name"]
-        self.buildinfo.source_date = source_info["end_timestamp"]
+        self.buildinfo.source_date = source_info["timestamp_ranges"][0][0]
         self.buildinfo.suite_name = source_info["suite_name"]
         self.buildinfo.component_name = source_info["component_name"]
         return self.buildinfo.archive_name, self.buildinfo.source_date, self.buildinfo.suite_name, self.buildinfo.component_name
@@ -329,7 +329,7 @@ class Rebuilder:
             raise RebuilderException(f"No binary info found for {pkgname}:{pkgarch}-{pkgver}")
         package.hash = pkghash
         package.archive_name = binary_info[0]["archive_name"]
-        package.timestamp = binary_info[0]["begin_timestamp"]
+        package.timestamp = binary_info[0]["timestamp_ranges"][0][0]
         package.suite_name = binary_info[0]["suite_name"]
         package.component_name = binary_info[0]["component_name"]
         return package.archive_name, package.timestamp, package.suite_name, package.component_name
