@@ -835,7 +835,8 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
-        self.generate_intoto_metadata(output, new_buildinfo)
+        if self.gpg_sign_keyid:
+            self.generate_intoto_metadata(output, new_buildinfo)
         self.verify_checksums(new_buildinfo)
 
 
