@@ -863,13 +863,13 @@ def get_args():
     parser.add_argument(
         "--query-url",
         help="API url for querying package and binary information "
-             "(default: http://snapshot.debian.org)",
-        default="http://snapshot.debian.org"
+             "(default: http://snapshot.notset.fr)",
+        default="http://snapshot.notset.fr"
     )
     parser.add_argument(
         "--snapshot-mirror",
-        help="Snapshot mirror to use (default: http://snapshot.debian.org)",
-        default="http://snapshot.debian.org"
+        help="Snapshot mirror to use (default: http://snapshot.notset.fr)",
+        default="http://snapshot.notset.fr"
     )
     parser.add_argument(
         "--use-metasnap",

@@ -15,7 +15,7 @@ fi
 localdir="$(readlink -f "$(dirname "$0")")"
 buildinfos=("$@")
 
-COMMON_OPTS="$COMMON_OPTS --snapshot-mirror http://debian.notset.fr/snapshot --query-url http://debian.notset.fr/snapshot"
+COMMON_OPTS="$COMMON_OPTS --snapshot-mirror http://snapshot.notset.fr --query-url http://snapshot.notset.fr"
 COMMON_OPTS="$COMMON_OPTS --builder=mmdebstrap --gpg-sign-keyid 632F8C69E01B25C9E0C3ADF2F360C0D259FB650C"
 QUBES_OPTS="$QUBES_OPTS --extra-repository-file $localdir/repos/qubes-r4.list --extra-repository-key $localdir/keys/qubes-debian-r4.asc"
 QUBES_OPTS="$QUBES_OPTS --gpg-verify --gpg-verify-key $localdir/keys/qubes-debian-r4.asc"
