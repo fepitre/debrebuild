@@ -39,6 +39,21 @@ logger = logging.getLogger('debrebuild')
 console_handler = logging.StreamHandler(sys.stderr)
 logger.addHandler(console_handler)
 
+DEBIAN_KEYRINGS = [
+            "/usr/share/keyrings/debian-archive-bullseye-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-bullseye-security-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-bullseye-stable.gpg",
+            "/usr/share/keyrings/debian-archive-buster-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-buster-security-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-buster-stable.gpg",
+            "/usr/share/keyrings/debian-archive-keyring.gpg",
+            "/usr/share/keyrings/debian-archive-removed-keys.gpg",
+            "/usr/share/keyrings/debian-archive-stretch-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-stretch-security-automatic.gpg",
+            "/usr/share/keyrings/debian-archive-stretch-stable.gpg",
+            "/usr/share/keyrings/debian-keyring.gpg",
+        ]
+
 
 class PackageException(Exception):
     pass
@@ -523,10 +538,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         with open(temp_sources_list, "w") as fd:
             fd.write("\n".join(self.get_sources_list()))
 
-        keyrings = [
-            "/usr/share/keyrings/debian-archive-keyring.gpg",
-            "/usr/share/keyrings/debian-archive-removed-keys.gpg",
-        ]
+        keyrings = DEBIAN_KEYRINGS
         if self.extra_repository_keys:
             keyrings += self.extra_repository_keys
         for keyring_src in keyrings:
@@ -636,6 +648,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         # Add dependencies for running build as builduser
         cmd += [
             '--essential-hook=chroot "$1" sh -c "apt-get --yes install fakeroot util-linux"'
+        ]
+
+        # Add Debian keyrings
+        cmd += [
+            '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(join(DEBIAN_KEYRINGS))
         ]
 
         # Copy extra keys and repository files

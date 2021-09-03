@@ -48,7 +48,7 @@ Highly inspired from original Debian tool `debrebuild` https://salsa.debian.org/
 
 Currently `debrebuild` works under `bullseye` or `sid`. You can install the dependencies by using as `root`:
 ```shell
-$ apt install -y mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-rstr
+$ apt install -y mmdebstrap in-toto python3-requests python3-apt python3-debian python3-dateutil python3-rstr debian-keyring debian-archive-keyring
 ```
 
 It requires notably `mmdebstrap >= 0.7.5` and `python3-debian >= 0.1.40`. The latter is still not available in `bullseye`.
