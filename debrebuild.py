@@ -639,6 +639,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 '--aptopt=Acquire::http::proxy "{}";'.format(self.proxy)
             ]
 
+        # Use all Debian keyrings at the mmdebstrap initial phase
+        cmd += [
+            '--keyring=/usr/share/keyrings/'
+        ]
+
         # Workaround for missing build-essential in buildinfo dependencies
         if not self.get_build_dependency("build-essential"):
             cmd += [
@@ -648,11 +653,6 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         # Add dependencies for running build as builduser
         cmd += [
             '--essential-hook=chroot "$1" sh -c "apt-get --yes install fakeroot util-linux"'
-        ]
-
-        # Add Debian keyrings
-        cmd += [
-            '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(join(DEBIAN_KEYRINGS))
         ]
 
         # Copy extra keys and repository files
