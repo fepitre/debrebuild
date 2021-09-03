@@ -655,6 +655,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             '--essential-hook=chroot "$1" sh -c "apt-get --yes install fakeroot util-linux"'
         ]
 
+        # Add Debian keyrings into mmdebstrap trusted keys after init phase
+        cmd += [
+            '--essential-hook=copy-in {} /etc/apt/trusted.gpg.d/'.format(join(DEBIAN_KEYRINGS))
+        ]
+
         # Copy extra keys and repository files
         if self.extra_repository_keys:
             cmd += [
