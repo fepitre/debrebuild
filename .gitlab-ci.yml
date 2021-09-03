@@ -2,7 +2,7 @@ variables:
   DEBUG: "1"
 
 .test_job:
-  image: debian:bullseye
+  image: debian:latest
   tags:
     - docker
   artifacts:
