@@ -229,7 +229,7 @@ class Rebuilder:
                 buildinfo_file.startswith('https://'):
             resp = self.get_response(buildinfo_file)
             if not resp.ok:
-                raise RebuilderException("Cannot get buildinfo: {}")
+                raise RebuilderException(f"Cannot get buildinfo: {resp.reason}")
 
             # We store remote buildinfo in a temporary file
             handle, self.buildinfo_file = tempfile.mkstemp(
