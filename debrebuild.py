@@ -711,9 +711,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Prepare build command
         cmd += [
-            '--customize-hook=chroot "$1" runuser -u builduser -- env --chdir={} {}'.format(quote(self.buildinfo.get_build_path()), " && ".join(
+            '--customize-hook=chroot "$1" env --unset=TMPDIR runuser builduser -c \"{}\"'.format(" && ".join(
                 [
-                    '{} dpkg-buildpackage -uc -a {} --build={}'.format(
+                    'cd {}'.format(quote(self.buildinfo.get_build_path())),
+                    'env {} dpkg-buildpackage -uc -a {} --build={}'.format(
                         ' '.join(self.get_env()), self.buildinfo.host_arch, build)
                 ]
             ))
