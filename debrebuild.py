@@ -205,7 +205,9 @@ class Rebuilder:
                  gpg_verify=False,
                  gpg_verify_key=None,
                  proxy=None,
-                 use_metasnap=False):
+                 use_metasnap=False,
+                 metasnap_url="http://snapshot.notset.fr"
+                 ):
         self.buildinfo = None
         self.snapshot_url = snapshot_url
         self.base_mirror = f"{snapshot_mirror}/archive"
@@ -219,6 +221,7 @@ class Rebuilder:
                 "https": self.proxy
             }
         self.use_metasnap = use_metasnap
+        self.metasnap_url = metasnap_url
         self.tempaptdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = {}
@@ -399,8 +402,16 @@ class Rebuilder:
     def find_build_dependencies_from_metasnap(self):
         status = False
         files = {'buildinfo': open(self.buildinfo_file, 'rb')}
+
+        # It means someone wants to use original metasnap service which is not
+        # compatible with the default JSON layout from snapshot.notset.fr
+        if 'metasnap.debian.net' in self.metasnap_url:
+            metasnap_endpoint = f"{self.metasnap_url}/cgi-bin/api"
+        else:
+            metasnap_endpoint = f"{self.metasnap_url}/mr/buildinfo"
+
         try:
-            resp = self.session.post("https://metasnap.debian.net/cgi-bin/api", files=files)
+            resp = self.session.post(metasnap_endpoint, files=files)
             if not resp.ok:
                 msg = f"{resp.status_code} ({resp.reason})"
             else:
@@ -413,17 +424,40 @@ class Rebuilder:
             logger.error(f"Cannot get timestamps from metasnap: {msg}")
             return
 
-        # latest first
-        content = reversed(resp.text.strip('\n').split('\n'))
-        for line in content:
-            arch, timestamp = line.split()
-            if arch != self.buildinfo.build_arch:
-                raise RebuilderException("Unable to handle multiple architectures")
-            self.required_timestamp_sources.setdefault("debian+unstable+main", []).append(
-                f"deb {self.base_mirror}/debian/{timestamp}/ unstable main")
+        if 'metasnap.debian.net' in self.metasnap_url:
+            # It means someone wants to use original metasnap service which is not
+            # compatible with the default JSON layout from snapshot.notset.fr
 
-            # We store timestamp value itself for the base mirror used for creating chroot
-            self.buildinfo.required_timestamps.setdefault("debian+unstable+main", []).append(timestamp)
+            # latest first
+            content = reversed(resp.text.strip('\n').split('\n'))
+            for line in content:
+                arch, timestamp = line.split()
+                if arch != self.buildinfo.build_arch:
+                    raise RebuilderException(
+                        "Unable to handle multiple architectures")
+                self.required_timestamp_sources.setdefault(
+                    "debian+unstable+main", []).append(
+                    f"deb {self.base_mirror}/debian/{timestamp}/ unstable main")
+
+                # We store timestamp value itself for the base mirror used for creating chroot
+                self.buildinfo.required_timestamps.setdefault(
+                    "debian+unstable+main", []).append(timestamp)
+        else:
+            try:
+                content = resp.json()["results"]
+            except Exception as e:
+                logger.error(f"Cannot get timestamps from metasnap: {str(e)}")
+                return
+
+            timestamps_sets = sorted(content, key=lambda x: len(x["timestamps"]))
+            archive = timestamps_sets[0]['archive_name']
+            suite = timestamps_sets[0]['suite_name']
+            component = timestamps_sets[0]['component_name']
+            key = f"{archive}+{suite}+{component}"
+            for timestamp in timestamps_sets[0]["timestamps"]:
+                self.required_timestamp_sources.setdefault(key, []).append(
+                    f"deb {self.base_mirror}/{archive}/{timestamp}/ {suite} {component}")
+                self.buildinfo.required_timestamps.setdefault(key, []).append(timestamp)
 
     def get_build_depends_timestamps(self):
         """
@@ -886,7 +920,7 @@ def get_args():
     parser.add_argument(
         "--query-url",
         help="API url for querying package and binary information "
-             "(default: http://snapshot.notset.fr)",
+             "(default: http://snapshot.notset.fr).",
         default="http://snapshot.notset.fr"
     )
     parser.add_argument(
@@ -895,11 +929,14 @@ def get_args():
         default="http://snapshot.notset.fr"
     )
     parser.add_argument(
+        "--metasnap-url",
+        help="Metasnap service url (default: http://snapshot.notset.fr).",
+        default="http://snapshot.notset.fr"
+    )
+    parser.add_argument(
         "--use-metasnap",
-        help="Use metasnap.debian.net. In contrast to snapshot.debian.org "
-             "service, the metasnap.debian.net service will always return a "
-             "minimal set of timestamps if the package versions were at some "
-             "point part of Debian unstable main.",
+        help="Service to query the minimal set of timestamps containing all"
+             " package versions referenced in a buildinfo file.",
         action="store_true"
     )
     parser.add_argument(
@@ -993,7 +1030,8 @@ def main():
             gpg_verify=args.gpg_verify,
             gpg_verify_key=args.gpg_verify_key,
             proxy=args.proxy,
-            use_metasnap=args.use_metasnap
+            use_metasnap=args.use_metasnap,
+            metasnap_url=args.metasnap_url
         )
         rebuilder.run(builder=args.builder, output=realpath(args.output))
     except RebuilderChecksumsError:

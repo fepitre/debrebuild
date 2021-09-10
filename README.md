@@ -2,10 +2,10 @@ debrebuild
 ===
 
 ```
-usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--use-metasnap]
-                     [--extra-repository-file EXTRA_REPOSITORY_FILE] [--extra-repository-key EXTRA_REPOSITORY_KEY]
-                     [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify] [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY]
-                     [--no-checksums-verification] [--verbose] [--debug]
+usage: debrebuild.py [-h] [--output OUTPUT] [--builder BUILDER] [--query-url QUERY_URL] [--snapshot-mirror SNAPSHOT_MIRROR]
+                     [--metasnap-url METASNAP_URL] [--use-metasnap] [--extra-repository-file EXTRA_REPOSITORY_FILE]
+                     [--extra-repository-key EXTRA_REPOSITORY_KEY] [--gpg-sign-keyid GPG_SIGN_KEYID] [--gpg-verify]
+                     [--gpg-verify-key GPG_VERIFY_KEY] [--proxy PROXY] [--verbose] [--debug]
                      buildinfo
 
 Given a buildinfo file from a Debian package, generate instructions for attempting to reproduce the binary packages built from the
@@ -19,10 +19,12 @@ optional arguments:
   --output OUTPUT       Directory for the build artifacts
   --builder BUILDER     Which building software should be used. (default: none)
   --query-url QUERY_URL
-                        API url for querying package and binary information (default: http://snapshot.debian.org)
-  --use-metasnap        Use metasnap.debian.net. In contrast to snapshot.debian.org service, the metasnap.debian.net service will
-                        always return a minimal set of timestamps if the package versions were at some point part of Debian unstable
-                        main.
+                        API url for querying package and binary information (default: http://snapshot.notset.fr).
+  --snapshot-mirror SNAPSHOT_MIRROR
+                        Snapshot mirror to use (default: http://snapshot.notset.fr)
+  --metasnap-url METASNAP_URL
+                        Metasnap service url (default: http://snapshot.notset.fr).
+  --use-metasnap        Service to query the minimal set of timestamps containing all package versions referenced in a buildinfo file.
   --extra-repository-file EXTRA_REPOSITORY_FILE
                         Add repository file content to the list of apt sources during the package build.
   --extra-repository-key EXTRA_REPOSITORY_KEY
@@ -33,8 +35,6 @@ optional arguments:
   --gpg-verify-key GPG_VERIFY_KEY
                         GPG key to use for buildinfo GPG check.
   --proxy PROXY         Proxy address to use.
-  --no-checksums-verification
-                        Don't fail on checksums verification between original and rebuild packages
   --verbose             Display logger info messages.
   --debug               Display logger debug messages.
 ```
