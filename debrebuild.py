@@ -608,18 +608,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             component_name = util_linux.component_name
             sorted_timestamp_sources = [util_linux.timestamp]
         else:
-            if self.buildinfo.required_timestamps.get(f"debian+{self.buildinfo.get_debian_suite()}+main", None):
-                sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps[f"debian+{self.buildinfo.get_debian_suite()}+main"])
-                archive_name = "debian"
-                suite_name = self.buildinfo.get_debian_suite()
-                component_name = "main"
-            elif self.buildinfo.required_timestamps.get("debian+unstable+main", None):
-                sorted_timestamp_sources = sorted(self.buildinfo.required_timestamps["debian+unstable+main"])
-                archive_name = "debian"
-                suite_name = "unstable"
-                component_name = "main"
+            reference_key = f"debian+{self.buildinfo.get_debian_suite()}+main"
+            if self.buildinfo.required_timestamps.get(reference_key, None):
+                timestamps = self.buildinfo.required_timestamps[reference_key]
             else:
-                raise RebuilderException("Cannot determine base mirror to use")
+                reference_key, timestamps = list(self.buildinfo.required_timestamps.items())[0]
+            sorted_timestamp_sources = sorted(timestamps)
+            archive_name, suite_name, component_name = reference_key.split("+", 3)
 
         for timestamp in sorted_timestamp_sources:
             url = f"{self.base_mirror}/{archive_name}/{timestamp}"
