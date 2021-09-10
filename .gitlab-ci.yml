@@ -52,11 +52,10 @@ debian-buildpath:
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/acorn/acorn_8.0.5+ds+~cs19.19.27-1_all.buildinfo
 
-# fixme: this is still failing due to upgrade
-#debian-downgrade:
-#  extends: .test_job
-#  variables:
-#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
+debian-downgrade:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
 
 metasnap-binnmu-unrepr:
   extends: .test_job

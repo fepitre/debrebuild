@@ -595,9 +595,15 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         return apt_build_depends
 
     def get_chroot_basemirror(self):
+        dpkg = self.get_build_dependency("dpkg")
         build_essential = self.get_build_dependency("build-essential")
         util_linux = self.get_build_dependency("util-linux")
-        if not self.use_metasnap and build_essential:
+        if not self.use_metasnap and apt:
+            archive_name = dpkg.archive_name
+            suite_name = dpkg.suite_name
+            component_name = dpkg.component_name
+            sorted_timestamp_sources = [dpkg.timestamp]
+        elif not self.use_metasnap and build_essential:
             archive_name = build_essential.archive_name
             suite_name = build_essential.suite_name
             component_name = build_essential.component_name
