@@ -925,8 +925,8 @@ def get_args():
     )
     parser.add_argument(
         "--metasnap-url",
-        help="Metasnap service url (default: http://snapshot.notset.fr).",
-        default="http://snapshot.notset.fr"
+        help="Metasnap service url (default: https://metasnap.debian.net).",
+        default="https://metasnap.debian.net"
     )
     parser.add_argument(
         "--use-metasnap",
