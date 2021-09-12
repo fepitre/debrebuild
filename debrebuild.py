@@ -51,6 +51,8 @@ DEBIAN_KEYRINGS = [
             "/usr/share/keyrings/debian-archive-stretch-automatic.gpg",
             "/usr/share/keyrings/debian-archive-stretch-security-automatic.gpg",
             "/usr/share/keyrings/debian-archive-stretch-stable.gpg",
+            "/usr/share/keyrings/debian-ports-archive-keyring-removed.gpg",
+            "/usr/share/keyrings/debian-ports-archive-keyring.gpg",
             "/usr/share/keyrings/debian-keyring.gpg",
         ]
 
