@@ -79,3 +79,10 @@ debian-keyrings-2:
   variables:
     DEBIAN_OPTS: "--use-metasnap"
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/iselect/iselect_1.4.0-4_amd64.buildinfo
+
+old-dpkg-binNMU:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--use-metasnap"
+    IS_REPRODUCIBLE: "no"
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/imgvtopgm/imgvtopgm_2.0-9+b2_amd64.buildinfo
