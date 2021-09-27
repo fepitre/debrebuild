@@ -32,8 +32,10 @@ import debian.debian_support
 import rstr
 
 from dateutil.parser import parse as parsedate
-from libs.openpgp import OpenPGPEnvironment, OpenPGPException
 from shlex import quote, join
+
+from lib.openpgp import OpenPGPEnvironment, OpenPGPException
+from lib.downloads import download_with_retry
 
 logger = logging.getLogger('debrebuild')
 console_handler = logging.StreamHandler(sys.stderr)
@@ -55,6 +57,18 @@ DEBIAN_KEYRINGS = [
             "/usr/share/keyrings/debian-ports-archive-keyring.gpg",
             "/usr/share/keyrings/debian-keyring.gpg",
         ]
+
+
+# Adapted from reproducible-builds/reprotest
+def run_or_tee(progargs, filename, store_dir, *args, **kwargs):
+    if store_dir:
+        tee = subprocess.Popen(['tee', filename], stdin=subprocess.PIPE,
+                               stdout=subprocess.DEVNULL, cwd=store_dir)
+        r = subprocess.run(progargs, *args, stdout=tee.stdin, **kwargs)
+        tee.communicate()
+        return r
+    else:
+        return subprocess.run(progargs, *args, **kwargs)
 
 
 class PackageException(Exception):
@@ -274,6 +288,10 @@ class Rebuilder:
             resp.status_code = 503
             resp.reason = str(e)
         return resp
+
+    def download_from_snapshot(self, path, sha256):
+        url = f"{self.snapshot_url}/mr/file/{sha256}/download"
+        return download_with_retry(url, path, sha256)
 
     # TODO: refactor get_src_date and get_bin_date. Do a better distinction between "BuildInfo"
     #  and the source package which as to be defined.
@@ -769,7 +787,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         if subprocess.run(cmd).returncode != 0:
             raise RebuilderException("mmdebstrap failed")
 
-    def verify_checksums(self, new_buildinfo):
+    def verify_checksums(self, output, new_buildinfo):
         status = True
         for alg in self.buildinfo.checksums.keys():
             checksums = self.buildinfo.checksums[alg]
@@ -808,6 +826,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 if cur_status:
                     logger.info(f"{f['name']}: OK")
                 else:
+                    # fixme: propose alternative methods to get file from Debian instead of
+                    #  using sha256 reference.
+                    if alg == 'sha256':
+                        debian_file = f"{output}/debian/{f['name']}"
+                        os.makedirs(os.path.dirname(debian_file), exist_ok=True)
+                        self.download_from_snapshot(debian_file, f['sha256'])
+                        self.generate_diffoscope(output, debian_file, new_file['name'])
                     status = False
 
         if not status:
@@ -836,8 +861,21 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             returncode = 1
 
         if returncode != 0:
-            raise RebuilderInTotoError("in-toto metadata generation failed")
-        logger.info("in-toto metadata generation: OK")
+            raise RebuilderInTotoError("in-toto metadata generation failed!")
+        logger.info("in-toto metadata generation passed")
+
+    @staticmethod
+    def generate_diffoscope(output, file1, file2):
+        cmd = ["diffoscope", file1, file2]
+        try:
+            run_or_tee(cmd, filename='diffoscope.out', store_dir=output, cwd=output)
+            returncode = 0
+        except FileNotFoundError:
+            logger.error("diffoscope not found!")
+            returncode = 1
+        if returncode != 0:
+            raise RebuilderInTotoError("diffoscope run failed!")
+        logger.info("diffoscope run passed")
 
     @staticmethod
     def get_host_architecture():
@@ -908,7 +946,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
-        self.verify_checksums(new_buildinfo)
+        self.verify_checksums(output, new_buildinfo)
         if self.gpg_sign_keyid:
             self.generate_intoto_metadata(output, new_buildinfo)
 
