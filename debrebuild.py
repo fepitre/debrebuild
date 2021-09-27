@@ -163,9 +163,9 @@ class BuildInfo:
             # Due to storing the binnmu changelog entry in deb822 buildinfo,
             # the first character is an unwanted newline
             self.logentry = str(self.logentry).lstrip('\n')
-            # while the linebreak at the beginning is wrong, there are two
+            # while the linebreak at the beginning is wrong, there are one
             # missing at the end
-            self.logentry += '\n\n'
+            self.logentry += '\n'
 
         self.build_depends = []
         self.required_timestamps = {}

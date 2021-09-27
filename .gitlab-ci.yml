@@ -17,10 +17,10 @@ variables:
   after_script:
     - mv /tmp/sources $CI_PROJECT_DIR/
 
-binnmu-unrepr:
+binnmu-repr:
   extends: .test_job
   variables:
-    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo.unreproducible
+    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
 
 debian-repr:
   extends: .test_job
@@ -57,11 +57,11 @@ debian-downgrade:
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
 
-metasnap-binnmu-unrepr:
+metasnap-binnmu:
   extends: .test_job
   variables:
     DEBIAN_OPTS: "--use-metasnap"
-    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo.unreproducible
+    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
 
 metasnap-debian-repr:
   extends: .test_job
@@ -84,5 +84,4 @@ old-dpkg-binNMU:
   extends: .test_job
   variables:
     DEBIAN_OPTS: "--use-metasnap"
-    IS_REPRODUCIBLE: "no"
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/imgvtopgm/imgvtopgm_2.0-9+b2_amd64.buildinfo
