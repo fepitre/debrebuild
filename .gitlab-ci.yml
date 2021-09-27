@@ -85,3 +85,10 @@ old-dpkg-binNMU:
   variables:
     DEBIAN_OPTS: "--use-metasnap"
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/imgvtopgm/imgvtopgm_2.0-9+b2_amd64.buildinfo
+
+binnmu-unrepr:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--use-metasnap"
+    IS_REPRODUCIBLE: "no"
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/b/bash/bash_5.1-3+b1_amd64.buildinfo
