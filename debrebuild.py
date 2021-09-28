@@ -291,6 +291,8 @@ class Rebuilder:
 
     def download_from_snapshot(self, path, sha256):
         url = f"{self.snapshot_url}/mr/file/{sha256}/download"
+        if not requests.head(url, timeout=10).ok:
+            raise RebuilderException(f"Cannot find URL: {url}")
         return download_with_retry(url, path, sha256)
 
     # TODO: refactor get_src_date and get_bin_date. Do a better distinction between "BuildInfo"
@@ -831,8 +833,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                     if alg == 'sha256':
                         debian_file = f"{output}/debian/{f['name']}"
                         os.makedirs(os.path.dirname(debian_file), exist_ok=True)
-                        self.download_from_snapshot(debian_file, f['sha256'])
-                        self.generate_diffoscope(output, debian_file, new_file['name'])
+                        try:
+                            self.download_from_snapshot(debian_file, f['sha256'])
+                            self.generate_diffoscope(output, debian_file, new_file['name'])
+                        except Exception as e:
+                            logger.error(f"Cannot generate diffoscope for {f['name']}: {str(e)}")
                     status = False
 
         if not status:
