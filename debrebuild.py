@@ -791,11 +791,13 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
     def verify_checksums(self, output, new_buildinfo):
         status = True
+        summary = {}
         for alg in self.buildinfo.checksums.keys():
             checksums = self.buildinfo.checksums[alg]
             new_checksums = new_buildinfo.checksums[alg]
             files = [f for f in checksums if not f['name'].endswith('.dsc')]
             new_files = [f for f in new_checksums if not f['name'].endswith('.dsc')]
+            summary.setdefault(alg, {})
 
             if len(files) != len(new_files):
                 logger.debug(f"old buildinfo: {' '.join(files)}")
@@ -806,46 +808,37 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             for f in files:
                 new_file = None
                 for nf in new_files:
-                    if nf['name'] == f['name']:
+                    if nf["name"] == f["name"]:
                         new_file = nf
                         break
                 if not new_file:
-                    raise RebuilderException(
-                        f"Cannot find {f['name']} in new files")
+                    raise RebuilderException(f"{alg}: Cannot find {f['name']} in new files")
+                summary[alg].setdefault(f["name"], {})
                 cur_status = True
                 for prop in f.keys():
                     if prop not in new_file.keys():
-                        raise RebuilderException(
-                            f"'{prop}' is not used in both buildinfo files")
+                        raise RebuilderException(f"{alg}: '{prop}' is not used in both buildinfo files")
+                    if prop != "name":
+                        summary[alg][f["name"]][prop] = {"old": f[prop], "new": new_file[prop]}
                     if prop == "size":
                         if f["size"] != new_file["size"]:
-                            logger.error(f"Size differs for {f['name']}")
+                            logger.error(f"{alg}: Size differs for {f['name']}")
                             cur_status = False
                         continue
                     if f[prop] != new_file[prop]:
-                        logger.error(f"Value of {prop} differs for {f['name']}")
+                        logger.error(f"{alg}: Value of '{prop}' differs for {f['name']}")
                         cur_status = False
                 if cur_status:
-                    logger.info(f"{f['name']}: OK")
+                    logger.info(f"{alg}: {f['name']}: OK")
                 else:
-                    # fixme: propose alternative methods to get file from Debian instead of
-                    #  using sha256 reference.
-                    if alg == 'sha256':
-                        debian_file = f"{output}/debian/{f['name']}"
-                        os.makedirs(os.path.dirname(debian_file), exist_ok=True)
-                        try:
-                            self.download_from_snapshot(debian_file, f['sha256'])
-                            self.generate_diffoscope(output, debian_file, new_file['name'])
-                        except Exception as e:
-                            logger.error(f"Cannot generate diffoscope for {f['name']}: {str(e)}")
                     status = False
 
         if not status:
-            msg = "Checksums: FAIL"
-            logger.error(msg)
-            raise RebuilderChecksumsError
+            logger.error("Checksums: FAIL")
         else:
             logger.info("Checksums: OK")
+
+        return status, summary
 
     def generate_intoto_metadata(self, output, new_buildinfo):
         new_files = [f['name'] for f in new_buildinfo.checksums["sha256"]
@@ -870,7 +863,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         logger.info("in-toto metadata generation passed")
 
     @staticmethod
-    def generate_diffoscope(output, file1, file2):
+    def run_diffoscope(output, file1, file2):
         cmd = ["diffoscope", file1, file2]
         try:
             run_or_tee(cmd, filename='diffoscope.out', store_dir=output, cwd=output)
@@ -890,6 +883,22 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         except FileNotFoundError:
             raise RebuilderException("Cannot determinate builder host architecture")
         return builder_architecture
+
+    def generate_diffoscope(self, output, summary):
+        # fixme: propose alternative methods to get file from Debian instead of
+        #  using sha256 reference.
+        if not summary.get('sha256', None):
+            logger.error(f"Cannot generate diffoscope: missing sha256 entries!")
+        files = summary['sha256']
+        for f in files.keys():
+            if files[f]["sha256"]["old"] != files[f]["sha256"]["new"]:
+                debian_file = f"{output}/debian/{f}"
+                os.makedirs(os.path.dirname(debian_file), exist_ok=True)
+                try:
+                    self.download_from_snapshot(debian_file, files[f]["sha256"]["old"])
+                    self.run_diffoscope(output, debian_file, f)
+                except Exception as e:
+                    logger.error(f"Cannot generate diffoscope for {f}: {str(e)}")
 
     def run(self, builder, output):
         # Predict new buildinfo name created by builder
@@ -951,7 +960,12 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
 
         # Stage 3: Everything post-build actions with rebuild artifacts
         new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
-        self.verify_checksums(output, new_buildinfo)
+        status, summary = self.verify_checksums(output, new_buildinfo)
+        with open(f"{output}/summary.out", "w") as fd:
+            fd.write(json.dumps(summary))
+        if not status:
+            self.generate_diffoscope(output, summary)
+            raise RebuilderChecksumsError
         if self.gpg_sign_keyid:
             self.generate_intoto_metadata(output, new_buildinfo)
 
