@@ -622,24 +622,16 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         return apt_build_depends
 
     def get_chroot_basemirror(self):
-        dpkg = self.get_build_dependency("dpkg")
-        build_essential = self.get_build_dependency("build-essential")
-        util_linux = self.get_build_dependency("util-linux")
-        if not self.use_metasnap and apt:
-            archive_name = dpkg.archive_name
-            suite_name = dpkg.suite_name
-            component_name = dpkg.component_name
-            sorted_timestamp_sources = [dpkg.timestamp]
-        elif not self.use_metasnap and build_essential:
-            archive_name = build_essential.archive_name
-            suite_name = build_essential.suite_name
-            component_name = build_essential.component_name
-            sorted_timestamp_sources = [build_essential.timestamp]
-        elif not self.use_metasnap and util_linux:
-            archive_name = util_linux.archive_name
-            suite_name = util_linux.suite_name
-            component_name = util_linux.component_name
-            sorted_timestamp_sources = [util_linux.timestamp]
+        # Workaround for standard method. libc6 should be the parent of all the packages.
+        for pkg in ["libc6", "dpkg", "build-essential", "util-linux"]:
+            dependency = self.get_build_dependency(pkg)
+            if dependency:
+                break
+        if not self.use_metasnap and dependency:
+            archive_name = dependency.archive_name
+            suite_name = dependency.suite_name
+            component_name = dependency.component_name
+            sorted_timestamp_sources = [dependency.timestamp]
         else:
             reference_key = f"debian+{self.buildinfo.get_debian_suite()}+main"
             if self.buildinfo.required_timestamps.get(reference_key, None):
@@ -923,6 +915,10 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
                 self.find_build_dependencies_from_metasnap()
             if not self.required_timestamp_sources:
                 logger.debug("Use snapshot for getting required timestamps")
+                # If we failed at getting required timestamps from metasnap, we fallback
+                # to standard method. It means the code needs to know that we don't use metasnap
+                # to solve some dependency issues.
+                self.use_metasnap = False
                 self.find_build_dependencies()
         except (apt_pkg.Error, apt.cache.FetchFailedException,
                 requests.exceptions.ConnectionError) as e:

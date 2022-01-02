@@ -57,6 +57,11 @@ debian-downgrade:
   variables:
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
 
+debian-downgrade2:
+  extends: .test_job
+  variables:
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/x/xwatch/xwatch_2.11-16_amd64.buildinfo
+
 metasnap-binnmu:
   extends: .test_job
   variables:
