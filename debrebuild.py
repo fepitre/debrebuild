@@ -222,7 +222,8 @@ class Rebuilder:
                  gpg_verify_key=None,
                  proxy=None,
                  use_metasnap=False,
-                 metasnap_url="http://snapshot.notset.fr"
+                 metasnap_url="http://snapshot.notset.fr",
+                 build_options_nocheck=False,
                  ):
         self.buildinfo = None
         self.snapshot_url = snapshot_url
@@ -238,6 +239,7 @@ class Rebuilder:
             }
         self.use_metasnap = use_metasnap
         self.metasnap_url = metasnap_url
+        self.build_options_nocheck = build_options_nocheck
         self.tempaptdir = None
         self.tempaptcache = None
         self.required_timestamp_sources = {}
@@ -276,6 +278,8 @@ class Rebuilder:
         env = []
         for key, val in self.buildinfo.env.items():
             env.append(f"{key}=\"{val}\"")
+        if self.build_options_nocheck:
+            env.append("DEB_BUILD_OPTIONS=nocheck")
         return env
 
     def get_response(self, url):
@@ -1042,6 +1046,11 @@ def get_args():
         help="Proxy address to use."
     )
     parser.add_argument(
+        "--build-options-nocheck",
+        action="store_true",
+        help="Disable build tests."
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Display logger info messages."
@@ -1104,7 +1113,8 @@ def main():
             gpg_verify_key=args.gpg_verify_key,
             proxy=args.proxy,
             use_metasnap=args.use_metasnap,
-            metasnap_url=args.metasnap_url
+            metasnap_url=args.metasnap_url,
+            build_options_nocheck=args.build_options_nocheck
         )
         rebuilder.run(builder=args.builder, output=realpath(args.output))
     except RebuilderChecksumsError:

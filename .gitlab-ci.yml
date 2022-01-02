@@ -92,3 +92,10 @@ binnmu-unrepr:
     DEBIAN_OPTS: "--use-metasnap"
     IS_REPRODUCIBLE: "no"
     BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/b/bash/bash_5.1-3+b1_amd64.buildinfo
+
+debian-notests:
+  extends: .test_job
+  variables:
+    DEBIAN_OPTS: "--build-options-nocheck --use-metasnap"
+    IS_REPRODUCIBLE: "no"
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/h/heimdal/heimdal_7.7.0+dfsg-2_all.buildinfo
