@@ -1,12 +1,12 @@
-import os
-import uuid
-import requests
-import ssl
 import hashlib
-import httpx
-import urllib3.exceptions
 import http.client
+import os
+import ssl
+import uuid
 
+import httpx
+import requests
+import urllib3.exceptions
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 MAX_RETRY_WAIT = 10
@@ -23,12 +23,12 @@ def sha256sum(fname):
 
 @retry(
     retry=(
-        retry_if_exception_type(OSError) |
-        retry_if_exception_type(httpx.HTTPError) |
-        retry_if_exception_type(urllib3.exceptions.HTTPError) |
-        retry_if_exception_type(http.client.HTTPException) |
-        retry_if_exception_type(ssl.SSLError) |
-        retry_if_exception_type(requests.exceptions.ConnectionError)
+        retry_if_exception_type(OSError)
+        | retry_if_exception_type(httpx.HTTPError)
+        | retry_if_exception_type(urllib3.exceptions.HTTPError)
+        | retry_if_exception_type(http.client.HTTPException)
+        | retry_if_exception_type(ssl.SSLError)
+        | retry_if_exception_type(requests.exceptions.ConnectionError)
     ),
     wait=wait_fixed(MAX_RETRY_WAIT),
     stop=stop_after_attempt(MAX_RETRY_STOP),
@@ -47,6 +47,8 @@ def download_with_retry(url, path, sha256=None):
         raise http.client.HTTPException from e
     tmp_sha256 = sha256sum(tmp_path)
     if sha256 and tmp_sha256 != sha256:
-        raise Exception(f"{os.path.basename(url)}: wrong SHA256: {tmp_sha256} != {sha256}")
+        raise Exception(
+            f"{os.path.basename(url)}: wrong SHA256: {tmp_sha256} != {sha256}"
+        )
     os.rename(tmp_path, path)
     return path
