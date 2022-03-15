@@ -119,7 +119,7 @@ class Package:
         return f'Package({self.name}, {self.version}, architecture={self.architecture})'
 
 
-class BuildInfo:
+class RebuilderBuildInfo:
     def __init__(self, buildinfo_file):
 
         if not os.path.exists(buildinfo_file):
@@ -272,7 +272,7 @@ class Rebuilder:
             finally:
                 gpg_env.close()
 
-        self.buildinfo = BuildInfo(self.buildinfo_file)
+        self.buildinfo = RebuilderBuildInfo(self.buildinfo_file)
 
     def get_env(self):
         env = []
@@ -964,7 +964,7 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
             self.mmdebstrap(output)
 
         # Stage 3: Everything post-build actions with rebuild artifacts
-        new_buildinfo = BuildInfo(realpath(new_buildinfo_file))
+        new_buildinfo = RebuilderBuildInfo(realpath(new_buildinfo_file))
         status, summary = self.verify_checksums(output, new_buildinfo)
         with open(f"{output}/summary.out", "w") as fd:
             fd.write(json.dumps(summary))
