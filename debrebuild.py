@@ -908,6 +908,11 @@ Binary::apt-get::Acquire::AllowInsecureRepositories "false";
         else:
             raise RebuilderException("Nothing to build")
 
+        # Stage 0: Pre-checks
+        for key in DEBIAN_KEYRINGS:
+            if not os.path.exists(key):
+                raise RebuilderException(f"Cannot find {key}. Ensure to have installed debian-keyring, debian-archive-keyring anddebian-ports-archive-keyring.'")
+
         # Stage 1: Parse provided buildinfo file and setup the rebuilder
         try:
             if self.use_metasnap:
