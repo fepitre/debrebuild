@@ -2,7 +2,7 @@ variables:
   DEBUG: "1"
 
 .test_job:
-  image: debian:stable
+  image: debian:latest
   tags:
     - docker
   artifacts:
@@ -17,90 +17,96 @@ variables:
   after_script:
     - mv /tmp/sources $CI_PROJECT_DIR/
 
-binnmu-repr:
-  extends: .test_job
-  variables:
-    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
+#binnmu-repr:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
+#
+#debian-repr:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo
+#
+#qubes-repr:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: tests/data/qubes-dnf_4.5.2-1+deb11u1_amd64.buildinfo
+#
+#http-qubes-repr:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo
+#
+#apt-amd64:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_amd64.buildinfo
+#
+#debian-root-fails:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/t/tar/tar_1.34+dfsg-1_amd64.buildinfo
+#
+#debian-buildpath:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/acorn/acorn_8.0.5+ds+~cs19.19.27-1_all.buildinfo
+#
+#debian-downgrade:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
+#
+#debian-downgrade2:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/x/xwatch/xwatch_2.11-16_amd64.buildinfo
+#
+#metasnap-binnmu:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--use-metasnap"
+#    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
+#
+#metasnap-debian-repr:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--use-metasnap"
+#    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo
+#
+#debian-keyrings:
+#  extends: .test_job
+#  variables:
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/r/ruby-rails-dom-testing/ruby-rails-dom-testing_2.0.3-3_all.buildinfo
+#
+#debian-keyrings-2:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--use-metasnap"
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/iselect/iselect_1.4.0-4_amd64.buildinfo
 
-debian-repr:
-  extends: .test_job
-  variables:
-    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo
-
-qubes-repr:
-  extends: .test_job
-  variables:
-    BUILDINFOS: tests/data/qubes-dnf_4.5.2-1+deb11u1_amd64.buildinfo
-
-http-qubes-repr:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://deb.qubes-os.org/r4.1/vm/pool/main/q/qubes-gui-agent/qubes-gui-agent_4.1.15-1+deb11u1_amd64.buildinfo
-
-apt-amd64:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/apt/apt_2.2.0_amd64.buildinfo
-
-debian-root-fails:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/t/tar/tar_1.34+dfsg-1_amd64.buildinfo
-
-debian-buildpath:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/acorn/acorn_8.0.5+ds+~cs19.19.27-1_all.buildinfo
-
-debian-downgrade:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/a/appconfig/appconfig_1.71-2.1_all.buildinfo
-
-debian-downgrade2:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/x/xwatch/xwatch_2.11-16_amd64.buildinfo
-
-metasnap-binnmu:
+debian-keyrings-3:
   extends: .test_job
   variables:
     DEBIAN_OPTS: "--use-metasnap"
-    BUILDINFOS: tests/data/0xffff_0.8-1+b1_amd64.buildinfo
+    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/o/os-prober/os-prober_1.81_amd64.buildinfo
 
-metasnap-debian-repr:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--use-metasnap"
-    BUILDINFOS: tests/data/gzip_1.10-2_all-amd64-source.buildinfo
-
-debian-keyrings:
-  extends: .test_job
-  variables:
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/r/ruby-rails-dom-testing/ruby-rails-dom-testing_2.0.3-3_all.buildinfo
-
-debian-keyrings-2:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--use-metasnap"
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/iselect/iselect_1.4.0-4_amd64.buildinfo
-
-old-dpkg-binNMU:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--use-metasnap"
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/imgvtopgm/imgvtopgm_2.0-9+b2_amd64.buildinfo
-
-binnmu-unrepr:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--use-metasnap"
-    IS_REPRODUCIBLE: "no"
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/b/bash/bash_5.1-3+b1_amd64.buildinfo
-
-debian-notests:
-  extends: .test_job
-  variables:
-    DEBIAN_OPTS: "--build-options-nocheck --use-metasnap"
-    IS_REPRODUCIBLE: "no"
-    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/h/heimdal/heimdal_7.7.0+dfsg-2_all.buildinfo
+#old-dpkg-binNMU:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--use-metasnap"
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/i/imgvtopgm/imgvtopgm_2.0-9+b2_amd64.buildinfo
+#
+#binnmu-unrepr:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--use-metasnap"
+#    IS_REPRODUCIBLE: "no"
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/b/bash/bash_5.1-3+b1_amd64.buildinfo
+#
+#debian-notests:
+#  extends: .test_job
+#  variables:
+#    DEBIAN_OPTS: "--build-options-nocheck --use-metasnap"
+#    IS_REPRODUCIBLE: "no"
+#    BUILDINFOS: https://buildinfos.debian.net/buildinfo-pool/h/heimdal/heimdal_7.7.0+dfsg-2_all.buildinfo
